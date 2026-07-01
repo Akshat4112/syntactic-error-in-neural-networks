@@ -1,0 +1,9 @@
+[project]
+name = "syntactic-error-neural-networks"
+requires-python = ">=3.10"
+description = "Investigating syntactic agreement errors in neural networks"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["code"]
+

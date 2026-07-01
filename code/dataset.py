@@ -1,8 +1,16 @@
 import re
-import io
-import requests
-import os
+from pathlib import Path
+
 import pandas as pd
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+CLEAN_REGEX = re.compile(r"[.(),``!?:;\-='...@_]")
+
+
+def clean_text(s):
+    return ' '.join(CLEAN_REGEX.sub(" ", s).split())
+
 
 class dataset:
     def __init__(self):
@@ -10,29 +18,16 @@ class dataset:
 
     def download_data(self):
         pass
-        # URL = "https://raw.githubusercontent.com/TalLinzen/rnn_agreement/master/data/wiki.vocab"
-        # download = requests.get(URL).content
-        # df = pd.read_csv(io.StringIO(download.decode('utf-8')), sep='\t')
-        # os.system("wget http://tallinzen.net/media/rnn_agreement/rnn_agr_simple.tar.gz")
-
-    """
-    Preprocesses the data by reading the training and validation datasets from CSV files,
-    cleaning the text in the "Preamble" column, converting the "POS" column values from strings
-    to binary values, and saving the preprocessed data to new CSV files.
-    Parameters:
-    None
-    Returns:
-    None
-    """
 
     def preprocess_data(self):
-        df_train = pd.read_csv('../data/rnn_agr_simple/numpred.train', sep='\t', names=['POS', "Preamble"])
-        df_val = pd.read_csv('../data/rnn_agr_simple/numpred.val', sep='\t', names=['POS', "Preamble"])
+        data_dir = PROJECT_ROOT / 'data'
+        raw_dir = data_dir / 'rnn_agr_simple'
 
-        df_train["Preamble"] = df_train["Preamble"].apply(
-            lambda s: ' '.join(re.sub("[.(),``!?:;-='...@_]", " ", s).split()))
-        df_val["Preamble"] = df_val["Preamble"].apply(
-            lambda s: ' '.join(re.sub("[.(),``!?:;-='...@_]", " ", s).split()))
+        df_train = pd.read_csv(raw_dir / 'numpred.train', sep='\t', names=['POS', "Preamble"])
+        df_val = pd.read_csv(raw_dir / 'numpred.val', sep='\t', names=['POS', "Preamble"])
+
+        df_train["Preamble"] = df_train["Preamble"].apply(clean_text)
+        df_val["Preamble"] = df_val["Preamble"].apply(clean_text)
 
         # VBZ is singular and VBP is plural
         df_train.loc[df_train["POS"] == "VBZ", "POS"] = 0
@@ -41,15 +36,10 @@ class dataset:
         df_val.loc[df_val["POS"] == "VBZ", "POS"] = 0
         df_val.loc[df_val["POS"] == "VBP", "POS"] = 1
 
-        train_df = pd.DataFrame(columns=["labels", "text"])
-        train_df['labels'] = df_train['POS']
-        train_df['text'] = df_train['Preamble']
+        train_df = pd.DataFrame({"labels": df_train['POS'], "text": df_train['Preamble']})
+        test_df = pd.DataFrame({"labels": df_val['POS'], "text": df_val['Preamble']})
 
-        test_df = pd.DataFrame(columns=["labels", "text"])
-        test_df['labels'] = df_val['POS']
-        test_df['text'] = df_val['Preamble']
-
-        train_df.to_csv('../data/train_df.csv')
-        test_df.to_csv('../data/test_df.csv')
+        train_df.to_csv(data_dir / 'train_df.csv')
+        test_df.to_csv(data_dir / 'test_df.csv')
 
         print("Data Preprocessed and Saved...")

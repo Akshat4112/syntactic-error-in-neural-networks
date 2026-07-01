@@ -1,34 +1,36 @@
+import os
+import warnings
+from pathlib import Path
+
 import pandas as pd
 import tensorflow as tf
-
-tf.random.set_seed(7)
-
+import torch
+from keras.models import load_model
+from tqdm import tqdm
 from transformers import AutoTokenizer, pipeline, AutoModelForSequenceClassification
 
-import os
-import torch
-from tqdm import tqdm
-from keras.models import load_model
-
-import warnings
-
+tf.random.set_seed(7)
 warnings.filterwarnings("ignore")
 os.environ["WANDB_DISABLED"] = "true"
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
 class evaluation:
     def __init__(self):
-        # checking for GPU and pytorch versions on device
         print("Num GPUs Available for tf: ", len(tf.config.list_physical_devices('GPU')))
         print(f'PyTorch version: {torch.__version__}')
-        print(f'CUDNN version: {torch.backends.cudnn.version()}')
-        print(f'Available GPU devices for Torch: {torch.cuda.device_count()}')
-        print(f'Device Name: {torch.cuda.get_device_name()}')
+        if torch.cuda.is_available():
+            print(f'CUDNN version: {torch.backends.cudnn.version()}')
+            print(f'Available GPU devices for Torch: {torch.cuda.device_count()}')
+            print(f'Device Name: {torch.cuda.get_device_name()}')
+        else:
+            print('No CUDA GPU available for PyTorch, using CPU')
 
-        # Loading human behavior data from csv files for evaluation
-        self.df_SPEEDED_RSVP = pd.read_csv('../data/human_behavior_data/SPEEDED_RSVP.csv')
-        self.df_SPEEDED_SPR = pd.read_csv('../data/human_behavior_data/SPEEDED_SPR.csv')
-        self.df_UNSPEEDED = pd.read_csv('../data/human_behavior_data/UNSPEEDED.csv')
+        human_data_dir = PROJECT_ROOT / 'data' / 'human_behavior_data'
+        self.df_SPEEDED_RSVP = pd.read_csv(human_data_dir / 'SPEEDED_RSVP.csv')
+        self.df_SPEEDED_SPR = pd.read_csv(human_data_dir / 'SPEEDED_SPR.csv')
+        self.df_UNSPEEDED = pd.read_csv(human_data_dir / 'UNSPEEDED.csv')
         self.df_SPEEDED_RSVP['BERT'] = ''
         self.df_SPEEDED_SPR['BERT'] = ''
         self.df_UNSPEEDED['BERT'] = ''
@@ -39,69 +41,34 @@ class evaluation:
         self.df_SPEEDED_SPR['RNN'] = ''
         self.df_UNSPEEDED['RNN'] = ''
 
+    def _save_results(self):
+        output_dir = PROJECT_ROOT / 'data' / 'human_behavior_data'
+        self.df_SPEEDED_RSVP.to_csv(output_dir / 'df_SPEEDED_RSVP.csv', index=False)
+        self.df_SPEEDED_SPR.to_csv(output_dir / 'df_SPEEDED_SPR.csv', index=False)
+        self.df_UNSPEEDED.to_csv(output_dir / 'df_UNSPEEDED.csv', index=False)
+
+    def _run_inference(self, model_col, predict_fn):
+        for df in [self.df_SPEEDED_RSVP, self.df_SPEEDED_SPR, self.df_UNSPEEDED]:
+            for i in tqdm(range(len(df['Preamble']))):
+                df.at[i, model_col] = predict_fn(df['Preamble'][i])
+        self._save_results()
+
     def evaluate_lstm(self):
-        model = load_model('../models/LSTM_model.keras')
+        model = load_model(str(PROJECT_ROOT / 'models' / 'LSTM_model.keras'))
         print("Model loaded successfully")
-
-        # Inference from BERT model
-
-        for i in tqdm(range(len(self.df_SPEEDED_RSVP['Preamble']))):
-            text = self.df_SPEEDED_RSVP['Preamble'][i]
-            self.df_SPEEDED_RSVP['LSTM'][i] = model.predict(text)
-
-        for i in tqdm(range(len(self.df_SPEEDED_SPR['Preamble']))):
-            text = self.df_SPEEDED_SPR['Preamble'][i]
-            self.df_SPEEDED_SPR['LSTM'][i] = model.predict(text)
-        for i in tqdm(range(len(self.df_UNSPEEDED['Preamble']))):
-            text = self.df_UNSPEEDED['Preamble'][i]
-            self.df_UNSPEEDED['LSTM'][i] = model.predict(text)
-
-        # Saving the results in CSV files
-        self.df_SPEEDED_RSVP.to_csv('../data/human_behavior_data/df_SPEEDED_RSVP.csv', index=False)
-        self.df_SPEEDED_SPR.to_csv('../data/human_behavior_data/df_SPEEDED_SPR.csv', index=False)
-        self.df_UNSPEEDED.to_csv('../data/human_behavior_data/df_UNSPEEDED.csv', index=False)
+        self._run_inference('LSTM', lambda text: model.predict(text))
 
     def evaluate_rnn(self):
-        model = load_model('../models/model_LSTM_2_epochs.h5')
+        model = load_model(str(PROJECT_ROOT / 'models' / 'model_LSTM_2_epochs.h5'))
         print("Model loaded successfully")
-
-        # Inference from BERT model
-
-        for i in tqdm(range(len(self.df_SPEEDED_RSVP['Preamble']))):
-            text = self.df_SPEEDED_RSVP['Preamble'][i]
-            self.df_SPEEDED_RSVP['RNN'][i] = model.predict(text)
-
-        for i in tqdm(range(len(self.df_SPEEDED_SPR['Preamble']))):
-            text = self.df_SPEEDED_SPR['Preamble'][i]
-            self.df_SPEEDED_SPR['RNN'][i] = model.predict(text)
-        for i in tqdm(range(len(self.df_UNSPEEDED['Preamble']))):
-            text = self.df_UNSPEEDED['Preamble'][i]
-            self.df_UNSPEEDED['RNN'][i] = model.predict(text)
-
-        # Saving the results in CSV files
-        self.df_SPEEDED_RSVP.to_csv('../data/human_behavior_data/df_SPEEDED_RSVP.csv', index=False)
-        self.df_SPEEDED_SPR.to_csv('../data/human_behavior_data/df_SPEEDED_SPR.csv', index=False)
-        self.df_UNSPEEDED.to_csv('../data/human_behavior_data/df_UNSPEEDED.csv', index=False)
+        self._run_inference('RNN', lambda text: model.predict(text))
 
     def evaluate_bert(self):
         tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
-        model = AutoModelForSequenceClassification.from_pretrained("../models/training_model_bert_full_data")
+        model = AutoModelForSequenceClassification.from_pretrained(
+            str(PROJECT_ROOT / 'models' / 'training_model_bert_full_data')
+        )
         print("Model loaded successfully")
-
-        # Inference from BERT model
-        classifier = pipeline(task="text-classification", model=model, tokenizer=tokenizer, device=0)
-        for i in tqdm(range(len(self.df_SPEEDED_RSVP['Preamble']))):
-            text = self.df_SPEEDED_RSVP['Preamble'][i]
-            self.df_SPEEDED_RSVP['BERT'][i] = classifier(text)[0]['label']
-
-        for i in tqdm(range(len(self.df_SPEEDED_SPR['Preamble']))):
-            text = self.df_SPEEDED_SPR['Preamble'][i]
-            self.df_SPEEDED_SPR['BERT'][i] = classifier(text)[0]['label']
-        for i in tqdm(range(len(self.df_UNSPEEDED['Preamble']))):
-            text = self.df_UNSPEEDED['Preamble'][i]
-            self.df_UNSPEEDED['BERT'][i] = classifier(text)[0]['label']
-
-        # Saving the results in CSV files
-        self.df_SPEEDED_RSVP.to_csv('../data/human_behavior_data/df_SPEEDED_RSVP.csv', index=False)
-        self.df_SPEEDED_SPR.to_csv('../data/human_behavior_data/df_SPEEDED_SPR.csv', index=False)
-        self.df_UNSPEEDED.to_csv('../data/human_behavior_data/df_UNSPEEDED.csv', index=False)
+        device = 0 if torch.cuda.is_available() else -1
+        classifier = pipeline(task="text-classification", model=model, tokenizer=tokenizer, device=device)
+        self._run_inference('BERT', lambda text: classifier(text)[0]['label'])

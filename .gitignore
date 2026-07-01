@@ -1,1 +1,15 @@
 models
+.idea/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+*.h5
+*.keras
+*.tar.gz
+.env
+*.db
+.DS_Store
+code/test_trainer/

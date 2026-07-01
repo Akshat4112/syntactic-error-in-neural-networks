@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 
+import torch
 from transformers import AutoTokenizer, pipeline, AutoModelForSequenceClassification
 
 os.environ["WANDB_DISABLED"] = "true"
@@ -14,5 +15,6 @@ model = AutoModelForSequenceClassification.from_pretrained(
 print("Model loaded successfully")
 
 # 0 = singular (VBZ), 1 = plural (VBP)
-classifier = pipeline(task="text-classification", model=model, tokenizer=tokenizer, device=0)
+device = 0 if torch.cuda.is_available() else -1
+classifier = pipeline(task="text-classification", model=model, tokenizer=tokenizer, device=device)
 print(classifier("My all friends "))

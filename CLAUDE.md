@@ -28,9 +28,6 @@ tests/                   # pytest test suite
   test_dataset.py        # Tests for text cleaning and POS label conversion
   test_train.py          # Tests for compute_metrics logic
 
-experiment_tracking/
-  mlflow.db              # MLflow experiment tracking database (SQLite)
-
 figures/                 # Training plots (loss, accuracy curves)
 models/                  # Saved trained models (gitignored)
 references/              # Related literature (PDF)
@@ -43,7 +40,6 @@ references/              # Related literature (PDF)
 - **PyTorch + HuggingFace Transformers** — BERT fine-tuning and inference
 - **Word2Vec (gensim)** — Embedding initialization for LSTM
 - **NLTK** — Tokenization (punkt tokenizer)
-- **MLflow** — Experiment tracking (SQLite backend)
 - **scikit-learn** — Train/test splitting, metrics
 - **pandas** — Data manipulation
 - **matplotlib** — Training visualization

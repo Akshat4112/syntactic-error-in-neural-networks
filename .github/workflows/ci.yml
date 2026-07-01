@@ -27,7 +27,7 @@ jobs:
         run: |
           python -m pip install --upgrade --no-cache-dir pip
           pip install --no-cache-dir flake8 pytest
-          pip install --no-cache-dir -r requirements.txt
+          grep -v -E 'tensorflow-intel|pathtools|seqeval' requirements.txt | pip install --no-cache-dir -r /dev/stdin
 
       - name: Lint with flake8
         run: |

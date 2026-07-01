@@ -1,4 +1,5 @@
 models
+CLAUDE.md
 .idea/
 __pycache__/
 *.pyc
@@ -10,6 +11,5 @@ build/
 *.keras
 *.tar.gz
 .env
-*.db
 .DS_Store
 code/test_trainer/

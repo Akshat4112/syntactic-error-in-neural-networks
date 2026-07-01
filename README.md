@@ -30,7 +30,6 @@ data/
 
 tests/                 # pytest test suite (26 tests)
 figures/               # Training loss/accuracy plots
-experiment_tracking/   # MLflow experiment logs
 references/            # Related literature
 ```
 
@@ -82,7 +81,7 @@ The challenge increases with **agreement attractors** — nouns of the opposite 
 
 ### Models
 
-**LSTM:** Word2Vec embeddings (250d) → LSTM (128 hidden) → Dense layers with dropout → binary classification. Trained with RMSprop and binary cross-entropy.
+**LSTM:** Word2Vec embeddings (250d) → LSTM (128 hidden) → Dense layers with dropout → softmax classification. Trained with RMSprop and categorical cross-entropy.
 
 **BERT:** Fine-tunes `bert-base-cased` for sequence classification using the HuggingFace Trainer API.
 
@@ -95,7 +94,6 @@ Trained models are evaluated against human behavioral data from three psycholing
 - TensorFlow / Keras — LSTM training
 - PyTorch / HuggingFace Transformers — BERT fine-tuning
 - Gensim — Word2Vec embeddings
-- MLflow — Experiment tracking
 - scikit-learn — Train/test splitting
 - matplotlib — Visualization
 

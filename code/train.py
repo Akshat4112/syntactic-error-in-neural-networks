@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 import datasets
 import evaluate
@@ -25,20 +26,25 @@ from transformers import TrainingArguments, AutoModelForSequenceClassification, 
 tf.random.set_seed(7)
 os.environ["WANDB_DISABLED"] = "true"
 
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
 
 class training_model:
     def __init__(self):
         print("Num GPUs Available for tf: ", len(tf.config.list_physical_devices('GPU')))
         print(f'PyTorch version: {torch.__version__}')
-        print(f'CUDNN version: {torch.backends.cudnn.version()}')
-        print(f'Available GPU devices for Torch: {torch.cuda.device_count()}')
-        print(f'Device Name: {torch.cuda.get_device_name()}')
+        if torch.cuda.is_available():
+            print(f'CUDNN version: {torch.backends.cudnn.version()}')
+            print(f'Available GPU devices for Torch: {torch.cuda.device_count()}')
+            print(f'Device Name: {torch.cuda.get_device_name()}')
+        else:
+            print('No CUDA GPU available for PyTorch, using CPU')
 
-        mlflow.set_tracking_uri("sqlite:///../experiment_tracking/mlflow.db")
+        mlflow.set_tracking_uri(f"sqlite:///{PROJECT_ROOT / 'experiment_tracking' / 'mlflow.db'}")
         mlflow.set_experiment("bert_full_data_training")
 
-        self.df_train = pd.read_csv('../data/train_df.csv')
-        self.df_test = pd.read_csv('../data/test_df.csv')
+        self.df_train = pd.read_csv(PROJECT_ROOT / 'data' / 'train_df.csv')
+        self.df_test = pd.read_csv(PROJECT_ROOT / 'data' / 'test_df.csv')
 
     def prepare_training(self):
         """
@@ -128,8 +134,7 @@ class training_model:
         with mlflow.start_run() as run:
             mlflow.keras.log_model(model, "models")
 
-        # saving trained LSTM model
-        model.save("../models/LSTM_model.keras")
+        model.save(str(PROJECT_ROOT / "models" / "LSTM_model.keras"))
 
         # Plot training & validation accuracy and loss curves
         plt.figure()
@@ -139,7 +144,7 @@ class training_model:
         plt.ylabel('loss')
         plt.xlabel('epoch')
         plt.legend(['train', 'test'], loc='upper left')
-        plt.savefig("../figures/model_loss_LSTM.png")
+        plt.savefig(str(PROJECT_ROOT / "figures" / "model_loss_LSTM.png"))
 
         plt.figure()
         plt.plot(History.history['accuracy'])
@@ -148,23 +153,26 @@ class training_model:
         plt.ylabel('accuracy')
         plt.xlabel('epoch')
         plt.legend(['train', 'test'], loc='upper left')
-        plt.savefig("../figures/model_accuracy_LSTM.png")
+        plt.savefig(str(PROJECT_ROOT / "figures" / "model_accuracy_LSTM.png"))
         print("Figures saved successfully")
 
-    def tokenize_function(self, examples):
-        return tokenizer(examples["text"], padding="max_length", truncation=True)
-
-    def compute_metrics(self, eval_pred):
-        logits, labels = eval_pred
-        predictions = np.argmax(logits, axis=-1)
-        return metric.compute(predictions=predictions, references=labels)
-
-    def train_bert_hugging_face(self):
+    def train_bert_hugging_face(self, num_epochs=10):
         ds_train = Dataset.from_pandas(self.df_train)
         ds_test = Dataset.from_pandas(self.df_test)
-        dataset = datasets.DatasetDict({"train": ds_train, "test": ds_test})
+        ds = datasets.DatasetDict({"train": ds_train, "test": ds_test})
         tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
-        tokenized_datasets = dataset.map(self.tokenize_function, batched=True)
+
+        def tokenize_function(examples):
+            return tokenizer(examples["text"], padding="max_length", truncation=True)
+
+        metric = evaluate.load("accuracy")
+
+        def compute_metrics(eval_pred):
+            logits, labels = eval_pred
+            predictions = np.argmax(logits, axis=-1)
+            return metric.compute(predictions=predictions, references=labels)
+
+        tokenized_datasets = ds.map(tokenize_function, batched=True)
         split_train_dataset = tokenized_datasets["train"].train_test_split(test_size=0.2)
 
         train_dataset = split_train_dataset["train"]
@@ -172,13 +180,22 @@ class training_model:
         test_dataset = tokenized_datasets["test"]
         with mlflow.start_run(run_name='bert_experiment'):
             model = AutoModelForSequenceClassification.from_pretrained("bert-base-cased", num_labels=2)
-            metric = evaluate.load("accuracy")
-            training_args = TrainingArguments(output_dir="../models/test_trainer", evaluation_strategy="epoch", report_to=None,
-                                              num_train_epochs=10)
-            trainer = Trainer(model=model, args=training_args, train_dataset=train_dataset, eval_dataset=eval_dataset,
-                tokenizer=tokenizer, compute_metrics=self.compute_metrics, )
+            training_args = TrainingArguments(
+                output_dir=str(PROJECT_ROOT / "models" / "test_trainer"),
+                evaluation_strategy="epoch",
+                report_to=None,
+                num_train_epochs=num_epochs,
+            )
+            trainer = Trainer(
+                model=model,
+                args=training_args,
+                train_dataset=train_dataset,
+                eval_dataset=eval_dataset,
+                tokenizer=tokenizer,
+                compute_metrics=compute_metrics,
+            )
 
             trainer.train()
-            mlflow.transformers.log_model(transformers_model=model, artifact_path="../models/bert_model", )
-            trainer.save_model("../models/training_model_bert_full_data")
+            mlflow.transformers.log_model(transformers_model=model, artifact_path=str(PROJECT_ROOT / "models" / "bert_model"))
+            trainer.save_model(str(PROJECT_ROOT / "models" / "training_model_bert_full_data"))
             predictions = trainer.predict(test_dataset)

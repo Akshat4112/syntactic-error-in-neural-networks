@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  WANDB_DISABLED: "true"
+  TF_CPP_MIN_LOG_LEVEL: "3"
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade --no-cache-dir pip
+          pip install --no-cache-dir flake8 pytest
+          pip install --no-cache-dir -r requirements.txt
+
+      - name: Lint with flake8
+        run: |
+          flake8 . --ignore=E501 --max-line-length=120
+
+      - name: Run tests
+        run: |
+          pytest tests/

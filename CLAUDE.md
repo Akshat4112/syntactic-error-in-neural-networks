@@ -10,20 +10,23 @@ Based on the dataset and methodology from Linzen, Dupoux & Goldberg (2016), "Ass
 
 ```
 code/                    # Main source code
-  main.py                # Entry point — orchestrates data prep, training, evaluation
+  main.py                # CLI entry point (argparse) — preprocess, train, evaluate
   dataset.py             # Data download and preprocessing (TSV → CSV)
   train.py               # Model training: LSTM (Keras/TF), BERT (HuggingFace Transformers)
   evaluation.py          # Evaluation against human behavior data
   transformer.py         # Standalone BERT inference script
-  archive/               # Earlier/alternative implementations
-    BERT.py              # BERT via simpletransformers
-    transformer.py       # BERT inference (slightly different paths)
+  archive/
+    BERT.py              # Earlier BERT implementation via simpletransformers
 
 data/
   rnn_agr_simple/        # Raw Linzen et al. dataset (TSV, ~142K training examples)
   train_df.csv           # Preprocessed training data (labels: 0=singular, 1=plural)
   test_df.csv            # Preprocessed test/validation data
   human_behavior_data/   # Human psycholinguistic experiment results (SPEEDED_RSVP, SPEEDED_SPR, UNSPEEDED)
+
+tests/                   # pytest test suite
+  test_dataset.py        # Tests for text cleaning and POS label conversion
+  test_train.py          # Tests for compute_metrics logic
 
 experiment_tracking/
   mlflow.db              # MLflow experiment tracking database (SQLite)
@@ -35,7 +38,7 @@ references/              # Related literature (PDF)
 
 ## Tech Stack
 
-- **Python 3.11**
+- **Python >= 3.10** (developed on 3.11)
 - **TensorFlow/Keras** — LSTM model architecture and training
 - **PyTorch + HuggingFace Transformers** — BERT fine-tuning and inference
 - **Word2Vec (gensim)** — Embedding initialization for LSTM
@@ -44,21 +47,51 @@ references/              # Related literature (PDF)
 - **scikit-learn** — Train/test splitting, metrics
 - **pandas** — Data manipulation
 - **matplotlib** — Training visualization
+- **pytest** — Test suite
+- **flake8** — Linting (config in `.flake8`, max line length 120)
+
+## CLI Usage
+
+```bash
+pip install -r requirements.txt
+
+# Preprocess raw data into train/test CSVs
+python code/main.py preprocess
+python code/main.py preprocess --download   # download raw data first
+
+# Train a model
+python code/main.py train --model lstm
+python code/main.py train --model bert --epochs 20
+
+# Evaluate against human behavior data
+python code/main.py evaluate --model lstm
+python code/main.py evaluate --model bert
+python code/main.py evaluate --model rnn
+```
+
+## Running Tests
+
+```bash
+pytest                  # runs all tests
+pytest tests/ -v        # verbose output
+```
+
+Tests use `pythonpath = ["code"]` (configured in `pyproject.toml`) so they can import from `code/` directly.
 
 ## How It Works
 
 ### Data Pipeline
 1. Raw data is tab-separated: POS tag (VBZ=singular, VBP=plural) + sentence preamble
-2. `dataset.preprocess_data()` cleans text (removes punctuation), converts POS tags to binary labels (0/1), saves as CSV
+2. `dataset.preprocess_data()` cleans text via regex (removes punctuation), converts POS tags to binary labels (0/1), saves as CSV
 
 ### Training Pipeline
 1. `training_model.prepare_training()` — Tokenizes text, trains Word2Vec embeddings, builds embedding matrix, prepares train/test split (80/20)
-2. Model training options (selected by uncommenting in `main.py`):
-   - `train_lstm()` — Sequential LSTM: Embedding(250d) → LSTM(128) → Dense(64) → Dropout → Dense(64) → Dropout → Dense(2, sigmoid). Uses RMSprop, binary crossentropy.
-   - `train_bert_hugging_face()` — Fine-tunes `bert-base-cased` for sequence classification via HuggingFace Trainer API.
+2. Model training:
+   - **LSTM**: Embedding(250d) → LSTM(128) → Dense(64) → Dropout(0.5) → Dense(64) → Dropout(0.2) → Dense(2, sigmoid). RMSprop optimizer, binary crossentropy.
+   - **BERT**: Fine-tunes `bert-base-cased` for sequence classification via HuggingFace Trainer.
 
 ### Evaluation Pipeline
-`evaluation.py` loads trained models and runs inference on human behavior datasets (psycholinguistic experiments), saving model predictions alongside human responses.
+Loads trained models, runs inference on human behavior datasets (psycholinguistic experiments), saves predictions alongside human responses.
 
 ### Key Parameters
 - Max sequence length: 47 tokens
@@ -68,35 +101,20 @@ references/              # Related literature (PDF)
 - BERT base model: `bert-base-cased`
 - Random seed: `tf.random.set_seed(7)`, `random_state=42` for splits
 
-## Running the Code
-
-```bash
-pip install -r requirements.txt
-cd code
-python main.py
-```
-
-All scripts use relative paths (`../data/`, `../models/`, etc.) and must be run from the `code/` directory.
-
-## Important Conventions
-
-- **Working directory**: All Python scripts assume CWD is `code/`. Relative paths like `../data/` and `../models/` break otherwise.
-- **Model selection**: Training and evaluation methods are toggled by commenting/uncommenting calls in `main.py`. There is no CLI argument parser.
-- **GPU expected**: Both `train.py` and `evaluation.py` call `torch.cuda.get_device_name()` on init, which will error without a CUDA GPU.
-- **WandB disabled**: `os.environ["WANDB_DISABLED"] = "true"` is set in training and evaluation modules.
-- **No test suite**: There are no automated tests. Validation is done via training metrics and manual evaluation against human data.
-- **No CI/CD**: No GitHub Actions or other CI configuration exists.
-- **No linter config**: No `.flake8`, `pyproject.toml`, or similar; no enforced code style.
-
 ## Data Labels
 
-- `0` = singular (originally POS tag `VBZ`)
-- `1` = plural (originally POS tag `VBP`)
+- `0` = singular (POS tag `VBZ`)
+- `1` = plural (POS tag `VBP`)
 - BERT classifier output: `LABEL_0` = singular, `LABEL_1` = plural
 
-## Gotchas
+## Path Resolution
 
-- `train.py:tokenize_function` and `compute_metrics` reference module-level `tokenizer` and `metric` variables that are only defined inside `train_bert_hugging_face()`, causing `NameError` if called as standalone methods.
-- `code/transformer.py` and `code/archive/transformer.py` are nearly identical files with minor path differences.
-- The notebook `data/psycholinguistics-syntactic-understanding-of-nn.ipynb` contains the original exploratory analysis and is not maintained in sync with the modular Python code.
-- `.idea/` directory (PyCharm config) is committed to the repo.
+All source files use `pathlib.Path(__file__).resolve().parent.parent` as `PROJECT_ROOT` to locate data, models, and figures. Scripts can be run from any working directory.
+
+## CI
+
+GitHub Actions runs on push/PR to `main`:
+1. Lint with flake8
+2. Run pytest
+
+Config: `.github/workflows/ci.yml`

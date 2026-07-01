@@ -1,9 +1,5 @@
 import argparse
 
-from dataset import dataset
-from train import training_model
-from evaluation import evaluation
-
 
 def main():
     parser = argparse.ArgumentParser(description="Syntactic Agreement in Neural Networks")
@@ -22,20 +18,23 @@ def main():
     args = parser.parse_args()
 
     if args.command == "preprocess":
+        from dataset import dataset
         data_obj = dataset()
         if args.download:
             data_obj.download_data()
         data_obj.preprocess_data()
 
     elif args.command == "train":
+        from train import training_model
         train_obj = training_model()
         train_obj.prepare_training()
         if args.model == "lstm":
-            train_obj.train_lstm()
+            train_obj.train_lstm(num_epochs=args.epochs)
         elif args.model == "bert":
             train_obj.train_bert_hugging_face(num_epochs=args.epochs)
 
     elif args.command == "evaluate":
+        from evaluation import evaluation
         eval_obj = evaluation()
         if args.model == "lstm":
             eval_obj.evaluate_lstm()

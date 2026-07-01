@@ -17,11 +17,18 @@ from gensim.models import Word2Vec
 from keras.initializers import Constant
 from keras.layers import Dense, Flatten, Embedding, LSTM, Dropout
 from keras.models import Sequential
-from keras.optimizers import RMSprop
-from keras.preprocessing.text import Tokenizer
-from keras.utils import pad_sequences, to_categorical
 from sklearn.model_selection import train_test_split
 from transformers import TrainingArguments, AutoModelForSequenceClassification, Trainer, AutoTokenizer
+
+try:
+    from keras.preprocessing.text import Tokenizer
+    from keras.utils import pad_sequences, to_categorical
+    from keras.optimizers import RMSprop
+except ImportError:
+    from tensorflow.keras.preprocessing.text import Tokenizer
+    from tensorflow.keras.preprocessing.sequence import pad_sequences
+    from tensorflow.keras.utils import to_categorical
+    from tensorflow.keras.optimizers import RMSprop
 
 tf.random.set_seed(7)
 os.environ["WANDB_DISABLED"] = "true"
@@ -57,15 +64,9 @@ class training_model:
          None
          """
 
-        tokenizer = nltk.data.load('tokenizers/punkt/english.pickle')
-
         sentences = []
-        sum = 0
         for pre in self.df_train['text']:
-            sents = tokenizer.tokenize(pre.strip())
-            sum += len(sents)
-            for sent in sents:
-                sentences.append(sent.split())
+            sentences.append(pre.strip().split())
 
         model = gensim.models.Word2Vec(sentences=sentences, vector_size=250, window=10, min_count=1)
 
@@ -108,14 +109,9 @@ class training_model:
     def train_rnn(self):
         pass
 
-    def train_lstm(self):
-        """
-        Trains an LSTM model for text classification.
-        Parameters:
-            None
-        Returns:
-            None
-        """
+    def train_lstm(self, num_epochs=2):
+        (PROJECT_ROOT / "models").mkdir(exist_ok=True)
+        (PROJECT_ROOT / "figures").mkdir(exist_ok=True)
         model = Sequential()
         model.add(Embedding(input_dim=self.vocab_size, output_dim=self.embedding_dim, input_length=self.max_len,
                             embeddings_initializer=Constant(self.embed_matrix)))
@@ -129,7 +125,7 @@ class training_model:
 
         model.compile(optimizer=RMSprop(learning_rate=1e-3), loss='binary_crossentropy', metrics=['accuracy'])
         mlflow.keras.autolog(log_models=True)
-        History = model.fit(self.x_train, self.y_train, epochs=2, batch_size=64, validation_split=0.2)
+        History = model.fit(self.x_train, self.y_train, epochs=num_epochs, batch_size=64, validation_split=0.2)
 
         with mlflow.start_run() as run:
             mlflow.keras.log_model(model, "models")

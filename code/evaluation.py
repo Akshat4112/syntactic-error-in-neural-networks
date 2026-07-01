@@ -31,15 +31,7 @@ class evaluation:
         self.df_SPEEDED_RSVP = pd.read_csv(human_data_dir / 'SPEEDED_RSVP.csv')
         self.df_SPEEDED_SPR = pd.read_csv(human_data_dir / 'SPEEDED_SPR.csv')
         self.df_UNSPEEDED = pd.read_csv(human_data_dir / 'UNSPEEDED.csv')
-        self.df_SPEEDED_RSVP['BERT'] = ''
-        self.df_SPEEDED_SPR['BERT'] = ''
-        self.df_UNSPEEDED['BERT'] = ''
-        self.df_SPEEDED_RSVP['LSTM'] = ''
-        self.df_SPEEDED_SPR['LSTM'] = ''
-        self.df_UNSPEEDED['LSTM'] = ''
-        self.df_SPEEDED_RSVP['RNN'] = ''
-        self.df_SPEEDED_SPR['RNN'] = ''
-        self.df_UNSPEEDED['RNN'] = ''
+        self.dataframes = [self.df_SPEEDED_RSVP, self.df_SPEEDED_SPR, self.df_UNSPEEDED]
 
     def _save_results(self):
         output_dir = PROJECT_ROOT / 'data' / 'human_behavior_data'
@@ -48,9 +40,11 @@ class evaluation:
         self.df_UNSPEEDED.to_csv(output_dir / 'df_UNSPEEDED.csv', index=False)
 
     def _run_inference(self, model_col, predict_fn):
-        for df in [self.df_SPEEDED_RSVP, self.df_SPEEDED_SPR, self.df_UNSPEEDED]:
+        for df in self.dataframes:
+            predictions = []
             for i in tqdm(range(len(df['Preamble']))):
-                df.at[i, model_col] = predict_fn(df['Preamble'][i])
+                predictions.append(predict_fn(df['Preamble'][i]))
+            df[model_col] = predictions
         self._save_results()
 
     def evaluate_lstm(self):

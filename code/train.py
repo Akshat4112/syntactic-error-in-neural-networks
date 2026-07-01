@@ -5,17 +5,13 @@ import datasets
 import evaluate
 import gensim
 import matplotlib.pyplot as plt
-import mlflow
-import mlflow.keras
-import nltk
 import numpy as np
 import pandas as pd
 import tensorflow as tf
 import torch
 from datasets import Dataset
-from gensim.models import Word2Vec
 from keras.initializers import Constant
-from keras.layers import Dense, Flatten, Embedding, LSTM, Dropout
+from keras.layers import Dense, Embedding, LSTM, Dropout
 from keras.models import Sequential
 from sklearn.model_selection import train_test_split
 from transformers import TrainingArguments, AutoModelForSequenceClassification, Trainer, AutoTokenizer
@@ -47,47 +43,17 @@ class training_model:
         else:
             print('No CUDA GPU available for PyTorch, using CPU')
 
-        mlflow.set_tracking_uri(f"sqlite:///{PROJECT_ROOT / 'experiment_tracking' / 'mlflow.db'}")
-        mlflow.set_experiment("bert_full_data_training")
-
         self.df_train = pd.read_csv(PROJECT_ROOT / 'data' / 'train_df.csv')
         self.df_test = pd.read_csv(PROJECT_ROOT / 'data' / 'test_df.csv')
 
     def prepare_training(self):
-        """
-         Reads training and test data from CSV files, tokenizes the text data,
-         trains a Word2Vec model on the tokenized data, and prepares the training
-         and testing datasets for a machine learning model.
-         Parameters:
-         None
-         Returns:
-         None
-         """
+        sentences = [pre.strip().split() for pre in self.df_train['text']]
 
-        sentences = []
-        for pre in self.df_train['text']:
-            sentences.append(pre.strip().split())
-
-        model = gensim.models.Word2Vec(sentences=sentences, vector_size=250, window=10, min_count=1)
-
-        model.train(sentences, epochs=10, total_examples=len(sentences))
-        vocab = model.wv  # unique words i.e vocab in the dataset
-        print("Vocab Length is: ", len(vocab))
-
-        words = list(model.wv.index_to_key)
-        word2vec_dict = {}
-        for word in words:
-            word2vec_dict[word] = model.wv.get_vector(word)
-
-        max = -1
-        for i, pre in enumerate(self.df_train['text']):
-            tokens = pre.split()
-            if (len(tokens) > max):
-                max = len(tokens)
+        w2v_model = gensim.models.Word2Vec(sentences=sentences, vector_size=250, window=10, min_count=1, epochs=10)
+        print("Vocab Length is: ", len(w2v_model.wv))
 
         tokenizer = Tokenizer()
         tokenizer.fit_on_texts(self.df_train['text'])
-        vocab_size = len(tokenizer.word_index) + 1
         encoded_vec = tokenizer.texts_to_sequences(self.df_train['text'])
 
         self.max_len = 47
@@ -96,18 +62,13 @@ class training_model:
 
         pad = pad_sequences(encoded_vec, maxlen=self.max_len, padding='post')
 
-        # embedding matrix
-        self.embed_matrix = np.zeros(shape=(vocab_size, self.embedding_dim))
+        self.embed_matrix = np.zeros(shape=(self.vocab_size, self.embedding_dim))
         for word, i in tokenizer.word_index.items():
-            vector = word2vec_dict.get(word)
-            if vector is not None:
-                self.embed_matrix[i] = vector
+            if word in w2v_model.wv:
+                self.embed_matrix[i] = w2v_model.wv[word]
 
         Y = to_categorical(self.df_train['labels'])
         self.x_train, self.x_test, self.y_train, self.y_test = train_test_split(pad, Y, test_size=0.20, random_state=42)
-
-    def train_rnn(self):
-        pass
 
     def train_lstm(self, num_epochs=2):
         (PROJECT_ROOT / "models").mkdir(exist_ok=True)
@@ -116,19 +77,14 @@ class training_model:
         model.add(Embedding(input_dim=self.vocab_size, output_dim=self.embedding_dim, input_length=self.max_len,
                             embeddings_initializer=Constant(self.embed_matrix)))
         model.add(LSTM(128, return_sequences=False))
-        model.add(Flatten())
         model.add(Dense(64, activation='relu'))
         model.add(Dropout(0.50))
         model.add(Dense(64, activation='relu'))
         model.add(Dropout(0.20))
-        model.add(Dense(2, activation='sigmoid'))
+        model.add(Dense(2, activation='softmax'))
 
-        model.compile(optimizer=RMSprop(learning_rate=1e-3), loss='binary_crossentropy', metrics=['accuracy'])
-        mlflow.keras.autolog(log_models=True)
+        model.compile(optimizer=RMSprop(learning_rate=1e-3), loss='categorical_crossentropy', metrics=['accuracy'])
         History = model.fit(self.x_train, self.y_train, epochs=num_epochs, batch_size=64, validation_split=0.2)
-
-        with mlflow.start_run() as run:
-            mlflow.keras.log_model(model, "models")
 
         model.save(str(PROJECT_ROOT / "models" / "LSTM_model.keras"))
 
@@ -174,24 +130,22 @@ class training_model:
         train_dataset = split_train_dataset["train"]
         eval_dataset = split_train_dataset["test"]
         test_dataset = tokenized_datasets["test"]
-        with mlflow.start_run(run_name='bert_experiment'):
-            model = AutoModelForSequenceClassification.from_pretrained("bert-base-cased", num_labels=2)
-            training_args = TrainingArguments(
-                output_dir=str(PROJECT_ROOT / "models" / "test_trainer"),
-                evaluation_strategy="epoch",
-                report_to=None,
-                num_train_epochs=num_epochs,
-            )
-            trainer = Trainer(
-                model=model,
-                args=training_args,
-                train_dataset=train_dataset,
-                eval_dataset=eval_dataset,
-                tokenizer=tokenizer,
-                compute_metrics=compute_metrics,
-            )
+        model = AutoModelForSequenceClassification.from_pretrained("bert-base-cased", num_labels=2)
+        training_args = TrainingArguments(
+            output_dir=str(PROJECT_ROOT / "models" / "test_trainer"),
+            evaluation_strategy="epoch",
+            report_to=None,
+            num_train_epochs=num_epochs,
+        )
+        trainer = Trainer(
+            model=model,
+            args=training_args,
+            train_dataset=train_dataset,
+            eval_dataset=eval_dataset,
+            tokenizer=tokenizer,
+            compute_metrics=compute_metrics,
+        )
 
-            trainer.train()
-            mlflow.transformers.log_model(transformers_model=model, artifact_path=str(PROJECT_ROOT / "models" / "bert_model"))
-            trainer.save_model(str(PROJECT_ROOT / "models" / "training_model_bert_full_data"))
-            predictions = trainer.predict(test_dataset)
+        trainer.train()
+        trainer.save_model(str(PROJECT_ROOT / "models" / "training_model_bert_full_data"))
+        predictions = trainer.predict(test_dataset)

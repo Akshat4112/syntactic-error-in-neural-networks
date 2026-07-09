@@ -18,6 +18,12 @@ def main():
     attr = subparsers.add_parser("attractor-eval", help="Evaluate accuracy by attractor count (0-5)")
     attr.add_argument("--model", choices=["lstm", "bert"], required=True, help="Model to evaluate")
 
+    subparsers.add_parser("baselines", help="Run baseline models (majority class, logistic regression)")
+
+    analyze = subparsers.add_parser("analyze", help="Run human vs model comparison analysis")
+    analyze.add_argument("--models", nargs="+", default=["LSTM", "BERT"],
+                         help="Model columns to analyze (default: LSTM BERT)")
+
     args = parser.parse_args()
 
     if args.command == "preprocess":
@@ -95,6 +101,14 @@ def main():
                 return [r['label'] for r in results]
 
             eval_obj.evaluate_by_attractor_count('BERT', predict_fn)
+
+    elif args.command == "baselines":
+        from baselines import Baselines
+        Baselines().run_all()
+
+    elif args.command == "analyze":
+        from analysis import HumanModelComparison
+        HumanModelComparison().run_full_analysis(model_cols=args.models)
 
 
 if __name__ == "__main__":

@@ -10,10 +10,13 @@ Based on the dataset and methodology from Linzen, Dupoux & Goldberg (2016), "Ass
 
 ```
 code/                    # Main source code
-  main.py                # CLI entry point (argparse) — preprocess, train, evaluate
+  main.py                # CLI entry point (argparse) — preprocess, train, evaluate, baselines, analyze
   dataset.py             # Data download and preprocessing (TSV → CSV)
   train.py               # Model training: LSTM (Keras/TF), BERT (HuggingFace Transformers)
   evaluation.py          # Evaluation against human behavior data
+  baselines.py           # Baseline models (majority class, logistic regression)
+  analysis.py            # Statistical analysis: human vs model comparison
+  reproducibility.py     # Seed control and experiment config saving
   transformer.py         # Standalone BERT inference script
   archive/
     BERT.py              # Earlier BERT implementation via simpletransformers
@@ -24,10 +27,13 @@ data/
   test_df.csv            # Preprocessed test/validation data
   human_behavior_data/   # Human psycholinguistic experiment results (SPEEDED_RSVP, SPEEDED_SPR, UNSPEEDED)
 
-tests/                   # pytest test suite
+tests/                   # pytest test suite (41 tests)
   test_dataset.py        # Tests for text cleaning and POS label conversion
   test_train.py          # Tests for compute_metrics logic
+  test_analysis.py       # Tests for bootstrap CI and McNemar's test
+  test_baselines.py      # Tests for baseline model logic
 
+results/                 # Structured JSON output from experiments (gitignored)
 figures/                 # Training plots (loss, accuracy curves)
 models/                  # Saved trained models (gitignored)
 references/              # Related literature (PDF)
@@ -39,8 +45,8 @@ references/              # Related literature (PDF)
 - **TensorFlow/Keras** — LSTM model architecture and training
 - **PyTorch + HuggingFace Transformers** — BERT fine-tuning and inference
 - **Word2Vec (gensim)** — Embedding initialization for LSTM
-- **NLTK** — Tokenization (punkt tokenizer)
-- **scikit-learn** — Train/test splitting, metrics
+- **scikit-learn** — Train/test splitting, metrics, baselines (TF-IDF + LogisticRegression)
+- **scipy** — Statistical tests (McNemar's test, Pearson correlation)
 - **pandas** — Data manipulation
 - **matplotlib** — Training visualization
 - **pytest** — Test suite
@@ -67,12 +73,19 @@ python code/main.py evaluate --model rnn
 # Evaluate accuracy by number of agreement attractors (0-5)
 python code/main.py attractor-eval --model lstm
 python code/main.py attractor-eval --model bert
+
+# Run baseline models (majority class, logistic regression)
+python code/main.py baselines
+
+# Run statistical analysis comparing models to human behavior
+python code/main.py analyze
+python code/main.py analyze --models LSTM BERT
 ```
 
 ## Running Tests
 
 ```bash
-pytest                  # runs all tests
+pytest                  # runs all 41 tests
 pytest tests/ -v        # verbose output
 ```
 
@@ -89,9 +102,30 @@ Tests use `pythonpath = ["code"]` (configured in `pyproject.toml`) so they can i
 2. Model training:
    - **LSTM**: Embedding(250d) → LSTM(128) → Dense(64) → Dropout(0.5) → Dense(64) → Dropout(0.2) → Dense(2, softmax). RMSprop optimizer, categorical crossentropy.
    - **BERT**: Fine-tunes `bert-base-cased` for sequence classification via HuggingFace Trainer.
+3. Hyperparameters and final metrics are saved to `results/` as JSON via `save_config()`.
 
 ### Evaluation Pipeline
 Loads trained models, runs batch inference on human behavior datasets (psycholinguistic experiments), saves predictions alongside human responses. The `attractor-eval` command measures accuracy on test splits grouped by number of agreement attractors (0-5) to analyze how intervening nouns affect model performance.
+
+### Statistical Analysis Pipeline
+The `analyze` command compares model predictions to human behavioral data across three psycholinguistic paradigms:
+- **Per-condition accuracy** with 95% bootstrap confidence intervals for both human and model
+- **McNemar's test** for statistical significance of human vs model accuracy differences
+- **Pearson correlation** between human and model error patterns across conditions
+- **Pairwise model comparisons** (LSTM vs BERT) via McNemar's test
+- **Match/mismatch breakdown** — accuracy when subject-attractor number agrees vs disagrees
+- All results saved as structured JSON to `results/human_model_comparison.json`
+
+### Baselines
+- **Majority class**: Always predicts the most frequent label (~68% accuracy)
+- **Logistic regression**: TF-IDF features (10K) + LogisticRegression with 5-fold cross-validation (~92% accuracy)
+
+### Human Behavior Data Conditions
+The experimental conditions encode subject-attractor agreement patterns:
+- `ss_*` / `pp_*` — subject and attractor match in number (easier)
+- `sp_*` / `ps_*` — subject and attractor mismatch (agreement attraction, harder)
+- `*_prep` — prepositional phrase modifier
+- `*_rel` — relative clause modifier
 
 ### Key Parameters
 - Max sequence length: 47 tokens
@@ -99,7 +133,10 @@ Loads trained models, runs batch inference on human behavior datasets (psycholin
 - LSTM hidden size: 128
 - Dropout rates: 0.50 (first), 0.20 (second)
 - BERT base model: `bert-base-cased`
-- Random seed: `tf.random.set_seed(7)`, `random_state=42` for splits
+- Random seed: 42 (unified across all frameworks via `set_seed()`)
+
+### Reproducibility
+All random seeds are unified through `reproducibility.set_seed(42)`, which sets seeds for Python's `random`, NumPy, TensorFlow, and PyTorch (including CUDA deterministic mode). Training configs and metrics are automatically saved as JSON to `results/`.
 
 ## Data Labels
 
@@ -115,6 +152,6 @@ All source files use `pathlib.Path(__file__).resolve().parent.parent` as `PROJEC
 
 GitHub Actions runs on push/PR to `main`:
 1. Lint with flake8
-2. Run pytest
+2. Run pytest (41 tests)
 
 Config: `.github/workflows/ci.yml`

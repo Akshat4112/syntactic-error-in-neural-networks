@@ -26,8 +26,10 @@ except ImportError:
     from tensorflow.keras.utils import to_categorical
     from tensorflow.keras.optimizers import RMSprop
 
-tf.random.set_seed(7)
+from reproducibility import set_seed, save_config
+
 os.environ["WANDB_DISABLED"] = "true"
+set_seed(42)
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
@@ -88,6 +90,26 @@ class TrainingModel:
 
         model.save(str(PROJECT_ROOT / "models" / "LSTM_model.keras"))
 
+        save_config('lstm', {
+            'embedding_dim': self.embedding_dim,
+            'lstm_hidden': 128,
+            'dense_units': 64,
+            'dropout_1': 0.50,
+            'dropout_2': 0.20,
+            'optimizer': 'RMSprop',
+            'learning_rate': 1e-3,
+            'loss': 'categorical_crossentropy',
+            'batch_size': 64,
+            'epochs': num_epochs,
+            'max_len': self.max_len,
+            'vocab_size': self.vocab_size,
+        }, metrics={
+            'final_train_accuracy': float(History.history['accuracy'][-1]),
+            'final_val_accuracy': float(History.history['val_accuracy'][-1]),
+            'final_train_loss': float(History.history['loss'][-1]),
+            'final_val_loss': float(History.history['val_loss'][-1]),
+        })
+
         # Plot training & validation accuracy and loss curves
         plt.figure()
         plt.plot(History.history['loss'])
@@ -136,6 +158,7 @@ class TrainingModel:
             evaluation_strategy="epoch",
             report_to=None,
             num_train_epochs=num_epochs,
+            seed=42,
         )
         trainer = Trainer(
             model=model,
@@ -148,4 +171,14 @@ class TrainingModel:
 
         trainer.train()
         trainer.save_model(str(PROJECT_ROOT / "models" / "training_model_bert_full_data"))
-        trainer.predict(test_dataset)
+        test_results = trainer.predict(test_dataset)
+        test_acc = float((np.argmax(test_results.predictions, axis=-1) == test_results.label_ids).mean())
+        save_config('bert', {
+            'base_model': 'bert-base-cased',
+            'num_labels': 2,
+            'epochs': num_epochs,
+            'evaluation_strategy': 'epoch',
+        }, metrics={
+            'test_accuracy': test_acc,
+            'test_loss': float(test_results.metrics.get('test_loss', 0)),
+        })

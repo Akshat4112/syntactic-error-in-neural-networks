@@ -58,6 +58,10 @@ python code/main.py train --model bert --epochs 10
 # Evaluate trained models against human behavior data
 python code/main.py evaluate --model lstm
 python code/main.py evaluate --model bert
+
+# Evaluate accuracy by number of agreement attractors (0-5)
+python code/main.py attractor-eval --model lstm
+python code/main.py attractor-eval --model bert
 ```
 
 Run `python code/main.py --help` for full options.

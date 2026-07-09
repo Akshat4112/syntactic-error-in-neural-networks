@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 import torch
-from datasets import Dataset
+from datasets import Dataset as HFDataset
 from keras.initializers import Constant
 from keras.layers import Dense, Embedding, LSTM, Dropout
 from keras.models import Sequential
@@ -32,7 +32,7 @@ os.environ["WANDB_DISABLED"] = "true"
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
-class training_model:
+class TrainingModel:
     def __init__(self):
         print("Num GPUs Available for tf: ", len(tf.config.list_physical_devices('GPU')))
         print(f'PyTorch version: {torch.__version__}')
@@ -109,8 +109,8 @@ class training_model:
         print("Figures saved successfully")
 
     def train_bert_hugging_face(self, num_epochs=10):
-        ds_train = Dataset.from_pandas(self.df_train)
-        ds_test = Dataset.from_pandas(self.df_test)
+        ds_train = HFDataset.from_pandas(self.df_train)
+        ds_test = HFDataset.from_pandas(self.df_test)
         ds = datasets.DatasetDict({"train": ds_train, "test": ds_test})
         tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
 
@@ -148,4 +148,4 @@ class training_model:
 
         trainer.train()
         trainer.save_model(str(PROJECT_ROOT / "models" / "training_model_bert_full_data"))
-        predictions = trainer.predict(test_dataset)
+        trainer.predict(test_dataset)

@@ -6,7 +6,6 @@ import pandas as pd
 import tensorflow as tf
 import torch
 from keras.models import load_model
-from tqdm import tqdm
 from transformers import AutoTokenizer, pipeline, AutoModelForSequenceClassification
 
 tf.random.set_seed(7)
@@ -16,7 +15,7 @@ os.environ["WANDB_DISABLED"] = "true"
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
-class evaluation:
+class Evaluation:
     def __init__(self):
         print("Num GPUs Available for tf: ", len(tf.config.list_physical_devices('GPU')))
         print(f'PyTorch version: {torch.__version__}')
@@ -39,23 +38,58 @@ class evaluation:
         self.df_SPEEDED_SPR.to_csv(output_dir / 'df_SPEEDED_SPR.csv', index=False)
         self.df_UNSPEEDED.to_csv(output_dir / 'df_UNSPEEDED.csv', index=False)
 
-    def _run_inference(self, model_col, predict_fn):
+    def _run_inference_batch(self, model_col, predict_fn):
         for df in self.dataframes:
-            predictions = []
-            for i in tqdm(range(len(df['Preamble']))):
-                predictions.append(predict_fn(df['Preamble'][i]))
+            preambles = df['Preamble'].tolist()
+            predictions = predict_fn(preambles)
             df[model_col] = predictions
         self._save_results()
 
     def evaluate_lstm(self):
         model = load_model(str(PROJECT_ROOT / 'models' / 'LSTM_model.keras'))
         print("Model loaded successfully")
-        self._run_inference('LSTM', lambda text: model.predict(text))
+
+        def predict_batch(texts):
+            import numpy as np
+            try:
+                from keras.preprocessing.text import Tokenizer
+                from keras.utils import pad_sequences
+            except ImportError:
+                from tensorflow.keras.preprocessing.text import Tokenizer
+                from tensorflow.keras.preprocessing.sequence import pad_sequences
+
+            train_df = pd.read_csv(PROJECT_ROOT / 'data' / 'train_df.csv')
+            tokenizer = Tokenizer()
+            tokenizer.fit_on_texts(train_df['text'])
+            sequences = tokenizer.texts_to_sequences(texts)
+            padded = pad_sequences(sequences, maxlen=47, padding='post')
+            preds = model.predict(padded, batch_size=256, verbose=0)
+            return np.argmax(preds, axis=-1).tolist()
+
+        self._run_inference_batch('LSTM', predict_batch)
 
     def evaluate_rnn(self):
         model = load_model(str(PROJECT_ROOT / 'models' / 'model_LSTM_2_epochs.h5'))
         print("Model loaded successfully")
-        self._run_inference('RNN', lambda text: model.predict(text))
+
+        def predict_batch(texts):
+            import numpy as np
+            try:
+                from keras.preprocessing.text import Tokenizer
+                from keras.utils import pad_sequences
+            except ImportError:
+                from tensorflow.keras.preprocessing.text import Tokenizer
+                from tensorflow.keras.preprocessing.sequence import pad_sequences
+
+            train_df = pd.read_csv(PROJECT_ROOT / 'data' / 'train_df.csv')
+            tokenizer = Tokenizer()
+            tokenizer.fit_on_texts(train_df['text'])
+            sequences = tokenizer.texts_to_sequences(texts)
+            padded = pad_sequences(sequences, maxlen=47, padding='post')
+            preds = model.predict(padded, batch_size=256, verbose=0)
+            return np.argmax(preds, axis=-1).tolist()
+
+        self._run_inference_batch('RNN', predict_batch)
 
     def evaluate_bert(self):
         tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
@@ -64,5 +98,41 @@ class evaluation:
         )
         print("Model loaded successfully")
         device = 0 if torch.cuda.is_available() else -1
-        classifier = pipeline(task="text-classification", model=model, tokenizer=tokenizer, device=device)
-        self._run_inference('BERT', lambda text: classifier(text)[0]['label'])
+        classifier = pipeline(
+            task="text-classification", model=model, tokenizer=tokenizer,
+            device=device, batch_size=64
+        )
+
+        def predict_batch(texts):
+            results = classifier(texts, batch_size=64)
+            return [r['label'] for r in results]
+
+        self._run_inference_batch('BERT', predict_batch)
+
+    def evaluate_by_attractor_count(self, model_name, predict_fn):
+        """Evaluate accuracy on test splits grouped by number of agreement attractors (0-5)."""
+        from dataset import clean_text
+        raw_dir = PROJECT_ROOT / 'data' / 'rnn_agr_simple'
+        results = {}
+        for n in range(6):
+            test_file = raw_dir / f'numpred.test.{n}'
+            if not test_file.exists():
+                continue
+            df = pd.read_csv(test_file, sep='\t', names=['POS', 'Preamble'])
+            df['Preamble'] = df['Preamble'].apply(clean_text)
+            labels = df['POS'].map({'VBZ': 0, 'VBP': 1}).values
+            predictions = predict_fn(df['Preamble'].tolist())
+            pred_labels = []
+            for p in predictions:
+                if isinstance(p, str):
+                    pred_labels.append(int(p.replace('LABEL_', '')))
+                else:
+                    pred_labels.append(int(p))
+            import numpy as np
+            accuracy = (np.array(pred_labels) == labels).mean()
+            results[n] = {'accuracy': accuracy, 'count': len(df)}
+            print(f"  {n} attractors: {accuracy:.4f} ({len(df)} examples)")
+        print(f"\n{model_name} accuracy by attractor count:")
+        for n, r in sorted(results.items()):
+            print(f"  {n}: {r['accuracy']:.4f} ({r['count']} examples)")
+        return results

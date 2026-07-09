@@ -12,7 +12,7 @@ def clean_text(s):
     return ' '.join(CLEAN_REGEX.sub(" ", s).split())
 
 
-class dataset:
+class Dataset:
     def __init__(self):
         pass
 

@@ -63,6 +63,10 @@ python code/main.py train --model bert --epochs 20
 python code/main.py evaluate --model lstm
 python code/main.py evaluate --model bert
 python code/main.py evaluate --model rnn
+
+# Evaluate accuracy by number of agreement attractors (0-5)
+python code/main.py attractor-eval --model lstm
+python code/main.py attractor-eval --model bert
 ```
 
 ## Running Tests
@@ -78,16 +82,16 @@ Tests use `pythonpath = ["code"]` (configured in `pyproject.toml`) so they can i
 
 ### Data Pipeline
 1. Raw data is tab-separated: POS tag (VBZ=singular, VBP=plural) + sentence preamble
-2. `dataset.preprocess_data()` cleans text via regex (removes punctuation), converts POS tags to binary labels (0/1), saves as CSV
+2. `Dataset.preprocess_data()` cleans text via regex (removes punctuation), converts POS tags to binary labels (0/1), saves as CSV
 
 ### Training Pipeline
-1. `training_model.prepare_training()` — Tokenizes text, trains Word2Vec embeddings, builds embedding matrix, prepares train/test split (80/20)
+1. `TrainingModel.prepare_training()` — Tokenizes text, trains Word2Vec embeddings, builds embedding matrix, prepares train/test split (80/20)
 2. Model training:
-   - **LSTM**: Embedding(250d) → LSTM(128) → Dense(64) → Dropout(0.5) → Dense(64) → Dropout(0.2) → Dense(2, sigmoid). RMSprop optimizer, binary crossentropy.
+   - **LSTM**: Embedding(250d) → LSTM(128) → Dense(64) → Dropout(0.5) → Dense(64) → Dropout(0.2) → Dense(2, softmax). RMSprop optimizer, categorical crossentropy.
    - **BERT**: Fine-tunes `bert-base-cased` for sequence classification via HuggingFace Trainer.
 
 ### Evaluation Pipeline
-Loads trained models, runs inference on human behavior datasets (psycholinguistic experiments), saves predictions alongside human responses.
+Loads trained models, runs batch inference on human behavior datasets (psycholinguistic experiments), saves predictions alongside human responses. The `attractor-eval` command measures accuracy on test splits grouped by number of agreement attractors (0-5) to analyze how intervening nouns affect model performance.
 
 ### Key Parameters
 - Max sequence length: 47 tokens

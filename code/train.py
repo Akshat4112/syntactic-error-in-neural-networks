@@ -155,7 +155,7 @@ class TrainingModel:
         model = AutoModelForSequenceClassification.from_pretrained("bert-base-cased", num_labels=2)
         training_args = TrainingArguments(
             output_dir=str(PROJECT_ROOT / "models" / "test_trainer"),
-            evaluation_strategy="epoch",
+            eval_strategy="epoch",
             report_to=None,
             num_train_epochs=num_epochs,
             seed=42,

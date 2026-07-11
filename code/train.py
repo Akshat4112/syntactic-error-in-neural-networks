@@ -130,7 +130,7 @@ class TrainingModel:
         plt.savefig(str(PROJECT_ROOT / "figures" / "model_accuracy_LSTM.png"))
         print("Figures saved successfully")
 
-    def train_bert_hugging_face(self, num_epochs=10):
+    def train_bert_hugging_face(self, num_epochs=10, max_steps=-1):
         ds_train = HFDataset.from_pandas(self.df_train)
         ds_test = HFDataset.from_pandas(self.df_test)
         ds = datasets.DatasetDict({"train": ds_train, "test": ds_test})
@@ -153,11 +153,13 @@ class TrainingModel:
         eval_dataset = split_train_dataset["test"]
         test_dataset = tokenized_datasets["test"]
         model = AutoModelForSequenceClassification.from_pretrained("bert-base-cased", num_labels=2)
+        eval_strat = "steps" if max_steps > 0 else "epoch"
         training_args = TrainingArguments(
             output_dir=str(PROJECT_ROOT / "models" / "test_trainer"),
-            eval_strategy="epoch",
+            eval_strategy=eval_strat,
             report_to="none",
             num_train_epochs=num_epochs,
+            max_steps=max_steps,
             seed=42,
         )
         trainer = Trainer(
@@ -177,7 +179,8 @@ class TrainingModel:
             'base_model': 'bert-base-cased',
             'num_labels': 2,
             'epochs': num_epochs,
-            'evaluation_strategy': 'epoch',
+            'max_steps': max_steps,
+            'eval_strategy': eval_strat,
         }, metrics={
             'test_accuracy': test_acc,
             'test_loss': float(test_results.metrics.get('test_loss', 0)),

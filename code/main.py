@@ -11,6 +11,8 @@ def main():
     train = subparsers.add_parser("train", help="Train a model")
     train.add_argument("--model", choices=["lstm", "bert"], required=True, help="Model to train")
     train.add_argument("--epochs", type=int, default=10, help="Number of training epochs (default: 10)")
+    train.add_argument("--max-steps", type=int, default=-1,
+                       help="Max training steps (overrides epochs if > 0, useful for CPU training)")
 
     evl = subparsers.add_parser("evaluate", help="Evaluate a trained model against human data")
     evl.add_argument("--model", choices=["lstm", "rnn", "bert"], required=True, help="Model to evaluate")
@@ -40,7 +42,7 @@ def main():
         if args.model == "lstm":
             train_obj.train_lstm(num_epochs=args.epochs)
         elif args.model == "bert":
-            train_obj.train_bert_hugging_face(num_epochs=args.epochs)
+            train_obj.train_bert_hugging_face(num_epochs=args.epochs, max_steps=args.max_steps)
 
     elif args.command == "evaluate":
         from evaluation import Evaluation

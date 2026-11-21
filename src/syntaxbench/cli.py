@@ -12,6 +12,8 @@ def main(argv=None, project_root=None):
     fetch.add_argument("--sha256", help="Override pinned archive SHA-256")
     fetch.add_argument("--offline", action="store_true")
 
+    subparsers.add_parser("validate", help="Validate raw splits and write integrity manifest")
+
     prep = subparsers.add_parser("preprocess", help="Preprocess data")
     prep.add_argument("--download", action="store_true", help="Download raw data first")
 
@@ -30,6 +32,13 @@ def main(argv=None, project_root=None):
         from .fetch import fetch_dataset
         try:
             print(fetch_dataset(args.project_root, args.sha256, args.offline))
+        except (OSError, ValueError) as exc:
+            parser.error(str(exc))
+
+    elif args.command == "validate":
+        from .validation import write_manifest
+        try:
+            print(write_manifest(args.project_root))
         except (OSError, ValueError) as exc:
             parser.error(str(exc))
 

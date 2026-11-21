@@ -29,7 +29,9 @@ Direct dependencies are pinned in pyproject.toml; transitive dependencies
 remain resolver-selected, so this is not a complete environment lock.
 TensorFlow/Keras 2.15 preserve the legacy Keras API; NumPy 1.26 and SciPy
 1.12 retain compatibility with Gensim 4.3.2. Evaluate, PyTorch and Accelerate
-are now explicit rather than relying on incidental dependencies.
+are now explicit rather than relying on incidental dependencies. PyArrow 16.1
+is pinned for the NumPy 1.x and datasets 2.x compatibility boundary.
+The standalone transformer example loads checkpoints only when run as a script.
 The archive extra is separate and is not validated by active-pipeline CI.
 The original 2023 environment is preserved in requirements/legacy-2023.txt
 for historical reference, not recommended as an install target. It contains

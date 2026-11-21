@@ -23,6 +23,8 @@ ml = [
     "scikit-learn==1.4.2",
     "matplotlib==3.8.4",
     "datasets==2.19.2",
+    # Compatible with NumPy 1.x and the datasets 2.x extension API.
+    "pyarrow==16.1.0",
     "evaluate==0.4.2",
     "transformers==4.40.2",
     "accelerate==0.29.3",

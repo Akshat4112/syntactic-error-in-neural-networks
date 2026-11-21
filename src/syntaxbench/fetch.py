@@ -1,7 +1,6 @@
 """Explicit, checksum-gated retrieval of the Linzen simple dataset."""
 import hashlib
 import re
-import shutil
 import tarfile
 import tempfile
 from pathlib import Path, PurePosixPath
@@ -33,9 +32,9 @@ def extract(archive, destination):
     with tarfile.open(archive, "r:gz") as tar:
         for member in tar:
             path = PurePosixPath(member.name)
-            if (path.is_absolute() or ".." in path.parts or
-                    not path.parts or path.parts[0] != "rnn_agr_simple" or
-                    "\\" in member.name or path in seen):
+            if (path.is_absolute() or ".." in path.parts
+                    or not path.parts or path.parts[0] != "rnn_agr_simple"
+                    or "\\" in member.name or path in seen):
                 raise ValueError(f"Unsafe archive member: {member.name}")
             seen.add(path)
             target = destination.joinpath(*path.parts)

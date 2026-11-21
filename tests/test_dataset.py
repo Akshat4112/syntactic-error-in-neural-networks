@@ -1,6 +1,6 @@
 import pandas as pd
 
-from dataset import clean_text
+from syntaxbench.dataset import clean_text
 
 
 class TestPreprocessVBZVBP:

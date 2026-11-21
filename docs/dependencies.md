@@ -1,9 +1,11 @@
 # Dependency profiles
 
 Use Python 3.10 or 3.11 in a fresh virtual environment. CI currently validates
-3.11 on Linux. Other platforms are not yet certified. The project metadata
-installs dependencies only until the package migration in SYN-004; invoke the
-existing CLI from the repository root.
+3.11 on Linux. Other platforms are not yet certified. The installable package provides the `syntaxbench` CLI. Install with
+`python -m pip install -e '.[dev,ml]'` for editable development. The CLI uses
+the current directory as workspace, or pass `--project-root /path/to/workspace`
+before the subcommand. Existing `python code/main.py` invocations retain the
+repository-root workspace after installation. Historical model limitations remain.
 
 | Profile | Command | Purpose |
 | --- | --- | --- |
@@ -20,8 +22,8 @@ python -m pip install --upgrade pip
 python -m pip install torch==2.3.1 --index-url https://download.pytorch.org/whl/cpu
 python -m pip install '.[ml,dev]'
 python -m pip check
-PYTHONPATH=code python -c "import dataset, train, evaluation, transformer"
-python code/main.py --help
+python -c "import syntaxbench.dataset, syntaxbench.train, syntaxbench.evaluation, syntaxbench.transformer"
+syntaxbench --help
 python -m pytest
 ```
 

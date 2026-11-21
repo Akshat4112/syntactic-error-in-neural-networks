@@ -33,10 +33,12 @@ ml = [
 # Historical standalone archive only; not needed by the active CLI.
 archive = ["simpletransformers==0.64.3"]
 
-[tool.setuptools]
-# Dependency-only distribution until SYN-004 migrates the code into src/.
-packages = []
+[project.scripts]
+syntaxbench = "syntaxbench.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["syntaxbench*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["code"]

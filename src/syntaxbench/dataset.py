@@ -3,8 +3,6 @@ from pathlib import Path
 
 import pandas as pd
 
-self.project_root = Path(__file__).resolve().parent.parent
-
 CLEAN_REGEX = re.compile(r"[.(),``!?:;\-='...@_]")
 
 

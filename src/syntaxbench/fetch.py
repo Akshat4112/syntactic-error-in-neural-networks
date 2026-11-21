@@ -34,11 +34,17 @@ def extract(archive, destination):
         for member in tar:
             path = PurePosixPath(member.name)
             # Ignore only regular AppleDouble metadata in the expected tree.
-            if (not path.is_absolute() and ".." not in path.parts
-                    and "\\" not in member.name and member.isfile()
-                    and (path.parts == ("._rnn_agr_simple",)
-                         or (path.parts[:1] == ("rnn_agr_simple",)
-                             and path.name.startswith("._")))):
+            metadata_path = any((
+                path.parts == ("._rnn_agr_simple",),
+                all((path.parts[:1] == ("rnn_agr_simple",), path.name.startswith("._"))),
+            ))
+            if all((
+                not path.is_absolute(),
+                ".." not in path.parts,
+                "\\" not in member.name,
+                member.isfile(),
+                metadata_path,
+            )):
                 continue
             unsafe = any((
                 path.is_absolute(),

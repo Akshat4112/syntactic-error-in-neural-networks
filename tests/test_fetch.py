@@ -58,3 +58,29 @@ def test_traversal(tmp_path):
 def test_offline_missing(tmp_path):
     with pytest.raises(FileNotFoundError):
         fetch.fetch_dataset(tmp_path, "0" * 64, offline=True)
+
+
+@pytest.mark.parametrize("name", ["./._rnn_agr_simple", "rnn_agr_simple/._numpred.train"])
+def test_appledouble_metadata(tmp_path, name, monkeypatch):
+    data = tmp_path / "data"
+    data.mkdir()
+    archive = data / "rnn_agr_simple.tar.gz"
+    with tarfile.open(archive, "w:gz") as tar:
+        for filename in (name, "rnn_agr_simple/numpred.train"):
+            member = tarfile.TarInfo(filename)
+            member.size = 1
+            tar.addfile(member, io.BytesIO(b"x"))
+    monkeypatch.setattr(fetch, "SOURCE_SHA256", fetch.digest(archive))
+    dest = fetch.fetch_dataset(tmp_path, offline=True)
+    assert sorted(p.name for p in dest.iterdir()) == ["numpred.train"]
+
+
+def test_appledouble_symlink_rejected(tmp_path):
+    archive = tmp_path / "fixture.tar.gz"
+    with tarfile.open(archive, "w:gz") as tar:
+        member = tarfile.TarInfo("rnn_agr_simple/._bad")
+        member.type = tarfile.SYMTYPE
+        member.linkname = "/etc/passwd"
+        tar.addfile(member)
+    with pytest.raises(ValueError):
+        fetch.extract(archive, tmp_path)

@@ -1,9 +1,40 @@
+[build-system]
+requires = ["setuptools>=69,<76", "wheel>=0.43,<1"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "syntactic-error-neural-networks"
-requires-python = ">=3.10"
+version = "0.1.0.dev0"
+requires-python = ">=3.10,<3.12"
 description = "Investigating syntactic agreement errors in neural networks"
+dependencies = [
+    "numpy==1.26.4",
+    "pandas==2.2.2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest==8.3.5", "flake8==7.5.0"]
+ml = [
+    "tensorflow==2.15.1",
+    "keras==2.15.0",
+    "torch==2.3.1",
+    "gensim==4.3.2",
+    "scipy==1.12.0",
+    "scikit-learn==1.4.2",
+    "matplotlib==3.8.4",
+    "datasets==2.19.2",
+    "evaluate==0.4.2",
+    "transformers==4.40.2",
+    "accelerate==0.29.3",
+    "tqdm==4.66.5",
+]
+# Historical standalone archive only; not needed by the active CLI.
+archive = ["simpletransformers==0.64.3"]
+
+[tool.setuptools]
+# Dependency-only distribution until SYN-004 migrates the code into src/.
+packages = []
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["code"]
-

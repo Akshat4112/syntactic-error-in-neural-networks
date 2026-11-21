@@ -35,13 +35,16 @@ references/            # Related literature
 
 ## Setup
 
-**Requirements:** Python >= 3.10
+**Requirements:** Python 3.10–3.11 (CI uses 3.11).
 
 ```bash
 git clone https://github.com/Akshat4112/Syntactic-Error-in-Neural-Networks.git
 cd Syntactic-Error-in-Neural-Networks
-pip install -r requirements.txt
+python -m pip install '.[ml,dev]'
+python -m pip check
 ```
+
+See [dependency profiles and CPU installation](docs/dependencies.md) for core-only setup and the historical environment.
 
 ## Usage
 

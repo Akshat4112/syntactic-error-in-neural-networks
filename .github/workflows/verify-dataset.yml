@@ -1,0 +1,44 @@
+name: Verify upstream dataset (SYN-006)
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/verify-dataset.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Retrieve upstream archive and verify actual fetch
+        env:
+          PYTHONPATH: src
+        run: |
+          set -eu
+          work=$(mktemp -d)
+          trap 'rm -rf "$work"' EXIT
+          export WORK="$work"
+          mkdir "$work/data"
+          curl --fail --location --proto '=https' --proto-redir '=https' --max-time 240 --max-filesize 2147483648 https://tallinzen.net/media/rnn_agreement/rnn_agr_simple.tar.gz -o "$work/data/rnn_agr_simple.tar.gz"
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          from syntaxbench.fetch import SOURCE_SHA256, digest, fetch_dataset
+          root = Path(os.environ["WORK"])
+          archive = root / "data/rnn_agr_simple.tar.gz"
+          sha = digest(archive)
+          print("Observed upstream SHA-256:", sha, flush=True)
+          print("Archive bytes:", archive.stat().st_size, flush=True)
+          assert sha == SOURCE_SHA256
+          dest = fetch_dataset(root, offline=True)
+          for path in sorted(dest.rglob("*")):
+              if path.is_file():
+                  print(path.relative_to(dest), path.stat().st_size)
+          assert fetch_dataset(root, offline=True) == dest
+          PY

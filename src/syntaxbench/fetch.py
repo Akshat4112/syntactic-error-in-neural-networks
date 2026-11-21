@@ -8,7 +8,8 @@ from urllib.request import urlopen
 
 SOURCE = "https://tallinzen.net/media/rnn_agreement/rnn_agr_simple.tar.gz"
 # Upstream README revision: 0001b91aab94c0f834f354a04ed22ba15cefd8da.
-# Do not invent an archive checksum. Require a trusted digest until verified.
+# Observed from HTTPS upstream in Actions run 44922540789 (2026-11-21).
+SOURCE_SHA256 = "3e0e0c194696dc53378791ac9a75a35d134f4de0dc9253de7cc0a5c8e48b3142"
 MAX_BYTES = 2 * 1024 ** 3
 
 
@@ -32,6 +33,13 @@ def extract(archive, destination):
     with tarfile.open(archive, "r:gz") as tar:
         for member in tar:
             path = PurePosixPath(member.name)
+            # Ignore only regular AppleDouble metadata in the expected tree.
+            if (not path.is_absolute() and ".." not in path.parts
+                    and "\\" not in member.name and member.isfile()
+                    and (path.parts == ("._rnn_agr_simple",)
+                         or (path.parts[:1] == ("rnn_agr_simple",)
+                             and path.name.startswith("._")))):
+                continue
             unsafe = any((
                 path.is_absolute(),
                 ".." in path.parts,
@@ -56,8 +64,10 @@ def extract(archive, destination):
                 raise ValueError(f"Unsupported archive member: {member.name}")
 
 
-def fetch_dataset(project_root, sha256, offline=False):
-    if not sha256 or not re.fullmatch(r"[a-fA-F0-9]{64}", sha256):
+def fetch_dataset(project_root, sha256=None, offline=False):
+    if sha256 is None:
+        sha256 = SOURCE_SHA256
+    if not re.fullmatch(r"[a-fA-F0-9]{64}", sha256):
         raise ValueError("A trusted SHA-256 archive digest is required")
     sha256 = sha256.lower()
     data = Path(project_root).resolve() / "data"

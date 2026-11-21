@@ -8,9 +8,6 @@ from keras.models import load_model
 from tqdm import tqdm
 from transformers import AutoTokenizer, pipeline, AutoModelForSequenceClassification
 
-tf.random.set_seed(7)
-warnings.filterwarnings("ignore")
-os.environ["WANDB_DISABLED"] = "true"
 
 class evaluation:
     def __init__(self, project_root=None):

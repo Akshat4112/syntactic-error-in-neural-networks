@@ -45,3 +45,19 @@ def test_active_imports_preserve_explicit_environment(tmp_path):
         cwd=tmp_path, env=env, check=True,
     )
     assert not list(tmp_path.iterdir())
+
+
+def test_legacy_dataset_exports(tmp_path):
+    from pathlib import Path
+
+    legacy_dir = Path(__file__).resolve().parents[1] / "code"
+    subprocess.run(
+        [sys.executable, "-c",
+         "import sys; sys.path.insert(0, sys.argv[1]); "
+         "from dataset import clean_text, dataset; "
+         "from syntaxbench.dataset import clean_text as canonical; "
+         "assert clean_text is canonical; "
+         "assert dataset().project_root == __import__('pathlib').Path(sys.argv[1]).parent",
+         str(legacy_dir)],
+        cwd=tmp_path, check=True,
+    )

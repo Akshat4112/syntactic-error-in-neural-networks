@@ -14,8 +14,9 @@ class dataset:
     def __init__(self, project_root=None):
         self.project_root = Path(project_root or Path.cwd()).resolve()
 
-    def download_data(self):
-        pass
+    def download_data(self, sha256=None, offline=False):
+        from .fetch import fetch_dataset
+        return fetch_dataset(self.project_root, sha256, offline)
 
     def preprocess_data(self):
         data_dir = self.project_root / 'data'
@@ -41,3 +42,4 @@ class dataset:
         test_df.to_csv(data_dir / 'test_df.csv')
 
         print("Data Preprocessed and Saved...")
+

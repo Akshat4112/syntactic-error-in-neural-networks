@@ -8,8 +8,14 @@ def main(argv=None, project_root=None):
                         help="Workspace containing data, models and figures (default: current directory)")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    prep = subparsers.add_parser("preprocess", help="Download and preprocess data")
+    fetch = subparsers.add_parser("fetch", help="Explicitly retrieve verified raw data")
+    fetch.add_argument("--sha256", required=True, help="Trusted archive SHA-256")
+    fetch.add_argument("--offline", action="store_true")
+
+    prep = subparsers.add_parser("preprocess", help="Preprocess data")
     prep.add_argument("--download", action="store_true", help="Download raw data first")
+
+    prep.add_argument("--sha256", help="Trusted archive SHA-256 for explicit download")
 
     train = subparsers.add_parser("train", help="Train a model")
     train.add_argument("--model", choices=["lstm", "bert"], required=True, help="Model to train")
@@ -20,11 +26,20 @@ def main(argv=None, project_root=None):
 
     args = parser.parse_args(argv)
 
-    if args.command == "preprocess":
+    if args.command == "fetch":
+        from .fetch import fetch_dataset
+        try:
+            print(fetch_dataset(args.project_root, args.sha256, args.offline))
+        except (OSError, ValueError) as exc:
+            parser.error(str(exc))
+
+    elif args.command == "preprocess":
         from .dataset import dataset
         data_obj = dataset(project_root=args.project_root)
         if args.download:
-            data_obj.download_data()
+            if not args.sha256:
+                parser.error("--download requires --sha256")
+            data_obj.download_data(args.sha256)
         data_obj.preprocess_data()
 
     elif args.command == "train":

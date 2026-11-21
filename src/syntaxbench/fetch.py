@@ -32,9 +32,14 @@ def extract(archive, destination):
     with tarfile.open(archive, "r:gz") as tar:
         for member in tar:
             path = PurePosixPath(member.name)
-            if (path.is_absolute() or ".." in path.parts
-                    or not path.parts or path.parts[0] != "rnn_agr_simple"
-                    or "\\" in member.name or path in seen):
+            unsafe = any((
+                path.is_absolute(),
+                ".." in path.parts,
+                path.parts[:1] != ("rnn_agr_simple",),
+                "\\" in member.name,
+                path in seen,
+            ))
+            if unsafe:
                 raise ValueError(f"Unsafe archive member: {member.name}")
             seen.add(path)
             target = destination.joinpath(*path.parts)

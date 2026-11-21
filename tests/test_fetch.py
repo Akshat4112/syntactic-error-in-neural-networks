@@ -84,3 +84,11 @@ def test_appledouble_symlink_rejected(tmp_path):
         tar.addfile(member)
     with pytest.raises(ValueError):
         fetch.extract(archive, tmp_path)
+
+
+def test_digest_without_file_digest(tmp_path, monkeypatch):
+    monkeypatch.delattr(fetch.hashlib, "file_digest", raising=False)
+    path = tmp_path / "payload"
+    payload = b"abc" * (1024 * 1024)
+    path.write_bytes(payload)
+    assert fetch.digest(path) == fetch.hashlib.sha256(payload).hexdigest()

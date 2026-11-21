@@ -1,8 +1,11 @@
 """Compatibility import for the historical repository layout."""
 from pathlib import Path
 
-from syntaxbench.dataset import clean_text as clean_text
+from syntaxbench.dataset import clean_text
 from syntaxbench.dataset import dataset as _dataset
+
+
+__all__ = ["clean_text", "dataset"]
 
 
 class dataset(_dataset):

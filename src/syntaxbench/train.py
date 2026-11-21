@@ -26,8 +26,6 @@ except ImportError:
     from tensorflow.keras.utils import to_categorical
     from tensorflow.keras.optimizers import RMSprop
 
-tf.random.set_seed(7)
-os.environ["WANDB_DISABLED"] = "true"
 
 class training_model:
     def __init__(self, project_root=None):

@@ -1,7 +1,6 @@
 from simpletransformers.classification import ClassificationModel, ClassificationArgs
 import sklearn.metrics
-import torch
-import logging
+
 
 def train_bert(self):
     """

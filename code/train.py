@@ -148,4 +148,4 @@ class training_model:
 
         trainer.train()
         trainer.save_model(str(PROJECT_ROOT / "models" / "training_model_bert_full_data"))
-        predictions = trainer.predict(test_dataset)
+        trainer.predict(test_dataset)

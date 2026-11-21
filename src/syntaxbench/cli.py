@@ -9,7 +9,7 @@ def main(argv=None, project_root=None):
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     fetch = subparsers.add_parser("fetch", help="Explicitly retrieve verified raw data")
-    fetch.add_argument("--sha256", required=True, help="Trusted archive SHA-256")
+    fetch.add_argument("--sha256", help="Override pinned archive SHA-256")
     fetch.add_argument("--offline", action="store_true")
 
     prep = subparsers.add_parser("preprocess", help="Preprocess data")
@@ -37,8 +37,6 @@ def main(argv=None, project_root=None):
         from .dataset import dataset
         data_obj = dataset(project_root=args.project_root)
         if args.download:
-            if not args.sha256:
-                parser.error("--download requires --sha256")
             data_obj.download_data(args.sha256)
         data_obj.preprocess_data()
 

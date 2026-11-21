@@ -33,3 +33,15 @@ def test_package_cli_import_is_lightweight(tmp_path):
          "assert 'torch' not in sys.modules"],
         cwd=tmp_path, check=True,
     )
+
+
+def test_active_imports_preserve_explicit_environment(tmp_path):
+    env = dict(os.environ, WANDB_DISABLED="sentinel")
+    subprocess.run(
+        [sys.executable, "-c",
+         "import os; import syntaxbench.dataset, syntaxbench.train, "
+         "syntaxbench.evaluation, syntaxbench.transformer; "
+         "assert os.environ['WANDB_DISABLED'] == 'sentinel'"],
+        cwd=tmp_path, env=env, check=True,
+    )
+    assert not list(tmp_path.iterdir())

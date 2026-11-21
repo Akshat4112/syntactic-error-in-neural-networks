@@ -32,8 +32,22 @@ jobs:
 
       - name: Smoke test active imports and CLI
         run: |
-          PYTHONPATH=code python -c "import dataset, train, evaluation, transformer"
+          python -c "import syntaxbench.dataset, syntaxbench.train, syntaxbench.evaluation, syntaxbench.transformer"
           python code/main.py --help
+          syntaxbench --help
+
+      - name: Verify wheel and editable installs outside checkout
+        run: |
+          python -m pip wheel --no-deps . -w "$RUNNER_TEMP/wheels"
+          python -m venv --system-site-packages "$RUNNER_TEMP/package-venv"
+          venv="$RUNNER_TEMP/package-venv/bin"
+          "$venv/python" -m pip install --no-deps --force-reinstall "$RUNNER_TEMP"/wheels/*.whl
+          cd "$RUNNER_TEMP"
+          "$venv/syntaxbench" --help
+          "$venv/python" -c 'import syntaxbench.dataset; print(syntaxbench.dataset.__file__)'
+          "$venv/python" -m pip install --no-deps -e "$GITHUB_WORKSPACE"
+          "$venv/syntaxbench" --help
+          "$venv/python" -c 'import syntaxbench.dataset; print(syntaxbench.dataset.__file__)'
 
       - name: Lint with flake8
         run: |

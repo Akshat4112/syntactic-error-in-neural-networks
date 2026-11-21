@@ -29,15 +29,16 @@ jobs:
           python - <<'PY'
           import os
           from pathlib import Path
-          from syntaxbench.fetch import digest, fetch_dataset
+          from syntaxbench.fetch import SOURCE_SHA256, digest, fetch_dataset
           root = Path(os.environ["WORK"])
           archive = root / "data/rnn_agr_simple.tar.gz"
           sha = digest(archive)
           print("Observed upstream SHA-256:", sha, flush=True)
           print("Archive bytes:", archive.stat().st_size, flush=True)
-          dest = fetch_dataset(root, sha, offline=True)
+          assert sha == SOURCE_SHA256
+          dest = fetch_dataset(root, offline=True)
           for path in sorted(dest.rglob("*")):
               if path.is_file():
                   print(path.relative_to(dest), path.stat().st_size)
-          assert fetch_dataset(root, sha, offline=True) == dest
+          assert fetch_dataset(root, offline=True) == dest
           PY

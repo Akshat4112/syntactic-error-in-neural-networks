@@ -4,6 +4,7 @@ from pathlib import Path
 import torch
 from transformers import AutoTokenizer, pipeline, AutoModelForSequenceClassification
 
+
 def main(project_root=None):
     os.environ.setdefault("WANDB_DISABLED", "true")
     project_root = Path(project_root or Path.cwd()).resolve()

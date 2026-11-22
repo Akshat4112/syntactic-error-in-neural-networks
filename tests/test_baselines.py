@@ -1,6 +1,8 @@
 import pytest
 
-from syntaxbench.baselines import MajorityBaseline, coverage, nearest_noun
+from syntaxbench.baselines import (
+    MajorityBaseline, NearestNounBaseline, coverage, nearest_noun,
+)
 from syntaxbench.validation import parse_record
 
 
@@ -42,3 +44,21 @@ def test_coverage():
     assert coverage([])["coverage"] is None
     with pytest.raises(ValueError):
         coverage([2])
+
+
+def test_preamble_only_adapter():
+    inputs = []
+
+    def tagger(text):
+        inputs.append(text)
+        return [("dogs", "NNS"), ("near", "IN"), ("tree", "NN")]
+
+    model = NearestNounBaseline(tagger, "fixture-v1")
+    assert model.predict("dogs near tree") == 0
+    assert model.predict(" ") is None
+    assert inputs == ["dogs near tree"]
+    assert model.tagger_id == "fixture-v1"
+    with pytest.raises(ValueError):
+        NearestNounBaseline(tagger, "")
+    with pytest.raises(TypeError):
+        model.predict(None)

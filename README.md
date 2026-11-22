@@ -65,6 +65,8 @@ python code/main.py evaluate --model bert
 
 Run `python code/main.py --help` for full options.
 
+See [dataset provenance and usage restrictions](docs/dataset-cards.md) before using or redistributing benchmark or human behavioral data.
+
 ### Raw dataset integrity
 
 Install the core package with `python -m pip install .`, then run:
@@ -128,4 +130,4 @@ This work builds on:
 
 ## License
 
-This project is licensed under the MIT License.
+The historical README identified MIT as the project license, but the license text and authorization remain unverified. See [dataset cards and usage restrictions](docs/dataset-cards.md). Software licensing does not establish dataset redistribution rights.

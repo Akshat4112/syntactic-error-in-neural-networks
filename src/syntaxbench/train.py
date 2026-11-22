@@ -13,7 +13,7 @@ from datasets import Dataset
 from keras.initializers import Constant
 from keras.layers import Dense, Embedding, LSTM, Dropout
 from keras.models import Sequential
-from sklearn.model_selection import train_test_split
+from .dataset import fit_training_texts
 from transformers import TrainingArguments, AutoModelForSequenceClassification, Trainer, AutoTokenizer
 
 try:
@@ -41,17 +41,17 @@ class training_model:
         else:
             print('No CUDA GPU available for PyTorch, using CPU')
 
-        self.df_train = pd.read_csv(self.project_root / 'data' / 'train_df.csv')
-        self.df_test = pd.read_csv(self.project_root / 'data' / 'test_df.csv')
+        self.df_train = pd.read_csv(self.project_root / 'data' / 'train_df.csv', keep_default_na=False)
+        self.df_val = pd.read_csv(self.project_root / 'data' / 'validation_df.csv', keep_default_na=False)
+        self.df_test = pd.read_csv(self.project_root / 'data' / 'test_df.csv', keep_default_na=False)
 
     def prepare_training(self):
-        sentences = [pre.strip().split() for pre in self.df_train['text']]
-
-        w2v_model = gensim.models.Word2Vec(sentences=sentences, vector_size=250, window=10, min_count=1, epochs=10)
-        print("Vocab Length is: ", len(w2v_model.wv))
-
         tokenizer = Tokenizer()
-        tokenizer.fit_on_texts(self.df_train['text'])
+        w2v_model = fit_training_texts(
+            self.df_train, tokenizer,
+            lambda sentences: gensim.models.Word2Vec(
+                sentences=sentences, vector_size=250, window=10, min_count=1, epochs=10),
+        )
         encoded_vec = tokenizer.texts_to_sequences(self.df_train['text'])
 
         self.max_len = 47
@@ -65,8 +65,11 @@ class training_model:
             if word in w2v_model.wv:
                 self.embed_matrix[i] = w2v_model.wv[word]
 
-        Y = to_categorical(self.df_train['labels'])
-        self.x_train, self.x_test, self.y_train, self.y_test = train_test_split(pad, Y, test_size=0.20, random_state=42)
+        self.x_train = pad
+        self.y_train = to_categorical(self.df_train['labels'], num_classes=2)
+        self.x_val = pad_sequences(tokenizer.texts_to_sequences(self.df_val['text']),
+                                   maxlen=self.max_len, padding='post')
+        self.y_val = to_categorical(self.df_val['labels'], num_classes=2)
 
     def train_lstm(self, num_epochs=2):
         (self.project_root / "models").mkdir(exist_ok=True)
@@ -82,7 +85,7 @@ class training_model:
         model.add(Dense(2, activation='softmax'))
 
         model.compile(optimizer=RMSprop(learning_rate=1e-3), loss='categorical_crossentropy', metrics=['accuracy'])
-        History = model.fit(self.x_train, self.y_train, epochs=num_epochs, batch_size=64, validation_split=0.2)
+        History = model.fit(self.x_train, self.y_train, epochs=num_epochs, batch_size=64, validation_data=(self.x_val, self.y_val))
 
         model.save(str(self.project_root / "models" / "LSTM_model.keras"))
 
@@ -93,7 +96,7 @@ class training_model:
         plt.title('model loss')
         plt.ylabel('loss')
         plt.xlabel('epoch')
-        plt.legend(['train', 'test'], loc='upper left')
+        plt.legend(['train', 'validation'], loc='upper left')
         plt.savefig(str(self.project_root / "figures" / "model_loss_LSTM.png"))
 
         plt.figure()
@@ -102,14 +105,14 @@ class training_model:
         plt.title('model accuracy')
         plt.ylabel('accuracy')
         plt.xlabel('epoch')
-        plt.legend(['train', 'test'], loc='upper left')
+        plt.legend(['train', 'validation'], loc='upper left')
         plt.savefig(str(self.project_root / "figures" / "model_accuracy_LSTM.png"))
         print("Figures saved successfully")
 
     def train_bert_hugging_face(self, num_epochs=10):
         ds_train = Dataset.from_pandas(self.df_train)
         ds_test = Dataset.from_pandas(self.df_test)
-        ds = datasets.DatasetDict({"train": ds_train, "test": ds_test})
+        ds = datasets.DatasetDict({"train": ds_train, "validation": Dataset.from_pandas(self.df_val), "test": ds_test})
         tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
 
         def tokenize_function(examples):
@@ -123,10 +126,8 @@ class training_model:
             return metric.compute(predictions=predictions, references=labels)
 
         tokenized_datasets = ds.map(tokenize_function, batched=True)
-        split_train_dataset = tokenized_datasets["train"].train_test_split(test_size=0.2)
-
-        train_dataset = split_train_dataset["train"]
-        eval_dataset = split_train_dataset["test"]
+        train_dataset = tokenized_datasets["train"]
+        eval_dataset = tokenized_datasets["validation"]
         test_dataset = tokenized_datasets["test"]
         model = AutoModelForSequenceClassification.from_pretrained("bert-base-cased", num_labels=2)
         training_args = TrainingArguments(

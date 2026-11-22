@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/verify-dataset.yml'
+      - 'src/syntaxbench/attractors.py'
       - 'src/syntaxbench/dataset.py'
       - 'src/syntaxbench/validation.py'
       - 'src/syntaxbench/fetch.py'
@@ -52,3 +53,22 @@ jobs:
           cat "$work/data/validation-manifest.json"
           python -m syntaxbench.cli --project-root "$work" preprocess
           cat "$work/data/split-overlap.json"
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          from syntaxbench.attractors import load_attractor_bins, membership_report
+          from syntaxbench.validation import validate_dataset, parse_record
+          root = Path(os.environ["WORK"])
+          bins = load_attractor_bins(root)
+          report = membership_report(bins)
+          manifest = validate_dataset(root)
+          for k in range(6):
+              assert report["bins"][str(k)]["count"] == manifest["splits"][f"test.{k}"]["count"]
+          with (root / "data/rnn_agr_simple/numpred.test").open(encoding="utf-8") as stream:
+              primary = set(map(parse_record, stream))
+          report["shared_with_primary_test"] = {
+              str(k): len(set(rows) & primary) for k, rows in bins.items()
+          }
+          print(json.dumps(report, indent=2, sort_keys=True))
+          PY

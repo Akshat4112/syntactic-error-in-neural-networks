@@ -31,3 +31,10 @@ Report answered, abstained, total, coverage and accuracy among answered
 records separately; never silently remove abstentions from the denominator.
 Apply the same approach per official attractor cohort. Fixture tests verify
 behavior but do not establish held-out benchmark scores.
+
+For raw preambles, construct `NearestNounBaseline(tagger, tagger_id)` with
+an independent callable mapping a preamble string to Penn Treebank token/tag
+pairs. Record the tagger model revision and tokenization configuration in
+`tagger_id`. The adapter never receives the target label or verb; blank
+preambles abstain. A real external tagger must still be selected and verified
+before measured benchmark evaluation (SYN-030).

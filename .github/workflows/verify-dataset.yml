@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/verify-dataset.yml'
+      - 'src/syntaxbench/dataset.py'
       - 'src/syntaxbench/validation.py'
       - 'src/syntaxbench/fetch.py'
       - 'src/syntaxbench/cli.py'
@@ -19,6 +20,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - name: Install core package
+        run: python -m pip install .
       - name: Retrieve upstream archive and verify actual fetch
         env:
           PYTHONPATH: src
@@ -47,3 +50,5 @@ jobs:
           PY
           python -m syntaxbench.cli --project-root "$work" validate
           cat "$work/data/validation-manifest.json"
+          python -m syntaxbench.cli --project-root "$work" preprocess
+          cat "$work/data/split-overlap.json"

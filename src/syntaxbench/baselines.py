@@ -55,3 +55,24 @@ def coverage(predictions):
         "abstained": total - answered,
         "coverage": answered / total if total else None,
     }
+
+
+@dataclass(frozen=True)
+class NearestNounBaseline:
+    """Adapt an independently supplied, versioned preamble POS tagger."""
+
+    tagger: object
+    tagger_id: str
+
+    def __post_init__(self):
+        if not callable(self.tagger):
+            raise TypeError("Expected a callable POS tagger")
+        if not isinstance(self.tagger_id, str) or not self.tagger_id.strip():
+            raise ValueError("Record tagger version and configuration")
+
+    def predict(self, preamble):
+        if not isinstance(preamble, str):
+            raise TypeError("Expected a raw text preamble")
+        if not preamble.strip():
+            return None
+        return nearest_noun(self.tagger(preamble))

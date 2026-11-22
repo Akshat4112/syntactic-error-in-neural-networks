@@ -1,9 +1,12 @@
-name: Verify upstream dataset (SYN-006)
+name: Verify upstream dataset
 on:
   pull_request:
     branches: [main]
     paths:
       - '.github/workflows/verify-dataset.yml'
+      - 'src/syntaxbench/validation.py'
+      - 'src/syntaxbench/fetch.py'
+      - 'src/syntaxbench/cli.py'
   workflow_dispatch:
 permissions:
   contents: read
@@ -42,3 +45,5 @@ jobs:
                   print(path.relative_to(dest), path.stat().st_size)
           assert fetch_dataset(root, offline=True) == dest
           PY
+          python -m syntaxbench.cli --project-root "$work" validate
+          cat "$work/data/validation-manifest.json"

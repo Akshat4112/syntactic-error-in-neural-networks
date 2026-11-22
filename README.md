@@ -65,6 +65,17 @@ python code/main.py evaluate --model bert
 
 Run `python code/main.py --help` for full options.
 
+### Raw dataset integrity
+
+Install the core package with `python -m pip install .`, then run:
+
+```bash
+syntaxbench fetch
+syntaxbench validate
+```
+
+Validation reads the nine official files from `data/rnn_agr_simple/` without modifying them or downloading anything. It rejects unknown POS labels, empty preambles, missing or empty files, invalid UTF-8 and malformed tab-separated rows. The JSON report at `data/validation-manifest.json` records per-file SHA-256, sample and label counts, and exact duplicate-row counts (duplicates are reported, not removed). Original preamble whitespace is preserved. The report does not establish cross-split isolation or attractor membership; those are separate validation stages.
+
 ## Running Tests
 
 ```bash

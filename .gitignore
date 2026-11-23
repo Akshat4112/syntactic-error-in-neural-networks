@@ -13,3 +13,15 @@ build/
 .env
 .DS_Store
 code/test_trainer/
+
+# SYN-005: platform/editor metadata and transient experiment output
+._*
+*.un~
+*.swp
+*.swo
+*.tfevents.*
+events.out.tfevents.*
+wandb/
+runs/
+.pytest_cache/
+.ruff_cache/

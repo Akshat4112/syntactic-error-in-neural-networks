@@ -46,7 +46,8 @@ class training_model:
         self.df_test = pd.read_csv(self.project_root / 'data' / 'test_df.csv', keep_default_na=False)
 
     def prepare_training(self):
-        tokenizer = Tokenizer()
+        tokenizer = Tokenizer(oov_token="<OOV>")
+        self.tokenizer = tokenizer
         w2v_model = fit_training_texts(
             self.df_train, tokenizer,
             lambda sentences: gensim.models.Word2Vec(
@@ -58,7 +59,7 @@ class training_model:
         self.vocab_size = len(tokenizer.word_index) + 1
         self.embedding_dim = 250
 
-        pad = pad_sequences(encoded_vec, maxlen=self.max_len, padding='post')
+        pad = pad_sequences(encoded_vec, maxlen=self.max_len, padding='post', truncating='pre')
 
         self.embed_matrix = np.zeros(shape=(self.vocab_size, self.embedding_dim))
         for word, i in tokenizer.word_index.items():
@@ -76,7 +77,7 @@ class training_model:
         (self.project_root / "figures").mkdir(exist_ok=True)
         model = Sequential()
         model.add(Embedding(input_dim=self.vocab_size, output_dim=self.embedding_dim, input_length=self.max_len,
-                            embeddings_initializer=Constant(self.embed_matrix)))
+                            embeddings_initializer=Constant(self.embed_matrix), mask_zero=True))
         model.add(LSTM(128, return_sequences=False))
         model.add(Dense(64, activation='relu'))
         model.add(Dropout(0.50))
@@ -88,6 +89,8 @@ class training_model:
         History = model.fit(self.x_train, self.y_train, epochs=num_epochs, batch_size=64, validation_data=(self.x_val, self.y_val))
 
         model.save(str(self.project_root / "models" / "LSTM_model.keras"))
+        (self.project_root / "models" / "LSTM_tokenizer.json").write_text(
+            self.tokenizer.to_json(), encoding="utf-8")
 
         # Plot training & validation accuracy and loss curves
         plt.figure()

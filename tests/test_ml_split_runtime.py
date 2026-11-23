@@ -22,10 +22,25 @@ def test_real_training_paths(tmp_path, monkeypatch):
     assert model.x_train.shape[0] == 2
     assert model.x_val.shape[0] == 1
     assert model.y_val.tolist() == [[0, 1]]
-    assert model.vocab_size == 4
+    assert model.vocab_size == 5
+    assert 'validation' not in model.tokenizer.word_index
+    assert 'test' not in model.tokenizer.word_index
+    assert model.x_val[0, 0] == model.tokenizer.word_index['<OOV>']
+    assert np.all(model.x_val[0, 2:] == 0)
     model.train_lstm(num_epochs=1)
     restored = train.tf.keras.models.load_model(tmp_path / "models" / "LSTM_model.keras")
-    assert restored.predict(model.x_val, verbose=0).shape == (1, 2)
+    probs = restored.predict(model.x_val, verbose=0)
+    assert probs.shape == (1, 2)
+    assert restored.layers[0].mask_zero
+    from syntaxbench.lstm import load_lstm_predictor
+    predict = load_lstm_predictor(tmp_path / 'models')
+    assert predict('validation dogs') == int(probs[0].argmax())
+    assert predict('unseen word') in (0, 1)
+    with pytest.raises(ValueError):
+        predict('  ')
+    (tmp_path / 'models' / 'LSTM_tokenizer.json').unlink()
+    with pytest.raises(FileNotFoundError):
+        load_lstm_predictor(tmp_path / 'models')
 
     vocab = tmp_path / "vocab.txt"
     vocab.write_text("[PAD]\n[UNK]\n[CLS]\n[SEP]\n[MASK]\nthe\ndog\ndogs\nvalidation\ntest\n")

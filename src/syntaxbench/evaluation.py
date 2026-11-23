@@ -5,6 +5,7 @@ import pandas as pd
 import tensorflow as tf
 import torch
 from keras.models import load_model
+from .lstm import load_lstm_predictor
 from tqdm import tqdm
 from transformers import AutoTokenizer, pipeline, AutoModelForSequenceClassification
 
@@ -44,9 +45,8 @@ class evaluation:
         self._save_results()
 
     def evaluate_lstm(self):
-        model = load_model(str(self.project_root / 'models' / 'LSTM_model.keras'))
-        print("Model loaded successfully")
-        self._run_inference('LSTM', lambda text: model.predict(text))
+        predict = load_lstm_predictor(self.project_root / 'models')
+        self._run_inference('LSTM', predict)
 
     def evaluate_rnn(self):
         model = load_model(str(self.project_root / 'models' / 'model_LSTM_2_epochs.h5'))
